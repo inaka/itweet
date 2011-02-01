@@ -9,13 +9,13 @@
 %%%   <pre>init(Args::term()) -> init_result()</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::json_object()) -> handler_result()</pre>  
+%%%   <pre>handle_status(Status::json_object(), State::term()) -> handler_result()</pre>  
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_event(Event::atom(), Data::json_object()) -> handler_result()</pre>
+%%%   <pre>handle_event(Event::atom(), Data::json_object(), State::term()) -> handler_result()</pre>
 %%%     Called each time an event is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_call(Msg::term(), State::term()) -> call_result() </pre>
+%%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> call_result() </pre>
 %%%     Called from <code>itweep:call/2</code><br/>
 %%%   </li><li>
 %%%   <pre>handle_info(Msg::term(), State::term()) -> handler_result()</pre>
@@ -65,14 +65,14 @@
 
 %% @type gen_start_option() = {timeout, non_neg_integer() | infinity | hibernate} |
 %%                            {debug, [trace | log | {logfile, string()} | statistics | debug]}. Generic start options (derived from gen_server)
-%% @type required_option() = {user, binary()}
-%%                         | {password, binary()}
+%% @type required_option() = {user, string()}
+%%                         | {password, string()}
 %% @type start_option() = required_option()
 %%                      | gen_start_option(). <b>itweep</b> start options (taken from the Twitter Stream API)
 %% @type start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
--type start_option() :: {user, binary()} | {password, binary()} | gen_start_option().
+-type start_option() :: {user, string()} | {password, string()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
 
 %% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}
@@ -87,12 +87,12 @@
 %% @type location() = {float(), float(), float(), float()}. Locations like the ones accepted by the Twitter Stream API
 %% @type gen_option() = {count, integer()}. Options for firehose/2, links/2
 %% @type filter_option() = gen_option() | {follow, [pos_integer()]}
-%%                       | {track, [binary()]} | {locations, [location()]}. Options for filter/2
+%%                       | {track, [string()]} | {locations, [location()]}. Options for filter/2
 -type server() :: atom() | pid() | {global, atom()}.
 -type location() :: {float(), float(), float(), float()}.
 -type gen_option() :: {count, -150000..150000}.
 -type filter_option() :: gen_option() | {follow, [pos_integer()]}
-                       | {track, [binary()]} | {locations, [location()]}.
+                       | {track, [string()]} | {locations, [location()]}.
 -export_type([server/0, location/0, filter_option/0]).
 
 
@@ -104,7 +104,7 @@
 -export([behaviour_info/1]).
 %% API
 -export([start/3, start/4, start_link/3, start_link/4, call/2, call/3]).
--export([filter/2, firehose/2, retweet/1, links/2, sample/1]).
+-export([filter/2, firehose/2, retweet/2, links/2, sample/2]).
 %% GEN SERVER
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -113,8 +113,9 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(state, {module    :: atom(), % Callback module
                 mod_state :: term(), % Callback module state
-                user      :: binary(),
-                password  :: binary()
+                user      :: string(),
+                password  :: string(),
+                req_id    :: undefined | ibrowse:req_id()
                }).
 -opaque state() :: #state{}.
 
@@ -125,7 +126,8 @@
 %%% @hidden
 -spec behaviour_info(callbacks | term()) -> undefined | [{atom(), non_neg_integer()}].
 behaviour_info(callbacks) ->
-  [{init, 1}, {handle_query, 2}, {handle_call, 3}, {terminate, 2}];
+  [{init, 1}, {handle_status, 2}, {handle_event, 3},
+   {handle_info, 2}, {handle_call, 3}, {terminate, 2}];
 behaviour_info(_Other) ->
   undefined.
 
@@ -166,34 +168,34 @@ start_link(Name, Mod, Args, Options) ->
   gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
 %%% @doc  Starts using the statuses/filter method to get results
-%%% @spec filter(server(), [filter_option()]) -> ok
--spec filter(server(), [filter_option()]) -> ok.
+%%% @spec filter(server(), [filter_option() | ibrowse:option()]) -> ok
+-spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
 filter(Server, Options) ->
-  gen_server:cast(Server, {filter, Options}).
+  gen_server:cast(Server, {"filter", Options}).
 
 %%% @doc  Starts using the statuses/firehose method to get results
-%%% @spec firehose(server(), [gen_option()]) -> ok
--spec firehose(server(), [gen_option()]) -> ok.
+%%% @spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok
+-spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok.
 firehose(Server, Options) ->
-  gen_server:cast(Server, {firehose, Options}).
+  gen_server:cast(Server, {"firehose", Options}).
 
 %%% @doc  Starts using the statuses/links method to get results
-%%% @spec links(server(), [gen_option()]) -> ok
--spec links(server(), [gen_option()]) -> ok.
+%%% @spec links(server(), [gen_option() | ibrowse:option()]) -> ok
+-spec links(server(), [gen_option() | ibrowse:option()]) -> ok.
 links(Server, Options) ->
-  gen_server:cast(Server, {links, Options}).
+  gen_server:cast(Server, {"links", Options}).
 
 %%% @doc  Starts using the statuses/retweet method to get results
-%%% @spec retweet(server()) -> ok
--spec retweet(server()) -> ok.
-retweet(Server) ->
-  gen_server:cast(Server, retweet).
+%%% @spec retweet(server(), [ibrowse:option()]) -> ok
+-spec retweet(server(), [ibrowse:option()]) -> ok.
+retweet(Server, Options) ->
+  gen_server:cast(Server, {"retweet", Options}).
 
 %%% @doc  Starts using the statuses/sample method to get results
-%%% @spec sample(server()) -> ok
--spec sample(server()) -> ok.
-sample(Server) ->
-  gen_server:cast(Server, sample).
+%%% @spec sample(server(), [ibrowse:option()]) -> ok
+-spec sample(server(), [ibrowse:option()]) -> ok.
+sample(Server, Options) ->
+  gen_server:cast(Server, {"sample", Options}).
 
 %%% @doc Make a call to a generic server.
 %%% If the server is located at another node, that node will be monitored.
@@ -216,7 +218,7 @@ call(Server, Request, Timeout) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @hidden
--spec init({atom(), term(), binary(), binary()}) -> {ok, #state{}} | ignore | {stop, term()}.
+-spec init({atom(), term(), string(), string()}) -> {ok, #state{}} | ignore | {stop, term()}.
 init({Mod, InitArgs, User, Password}) ->
   case Mod:init(InitArgs) of
     {ok, ModState} ->
@@ -240,10 +242,29 @@ handle_call(Request, From, State = #state{module = Mod, mod_state = ModState}) -
   end.
 
 %% @hidden
--spec handle_cast({filter, [filter_option()]} | {firehose | links, [gen_option()]} | retweet | sample, #state{}) -> {noreply, #state{}}.
-handle_cast(Msg, State) ->
-  %%TODO: Do something!!
-  {noreply, State}.
+-spec handle_cast({string(), [filter_option() | gen_option() | ibrowse:option()]}, #state{}) -> {noreply, #state{}}.
+handle_cast({Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId}) ->
+  BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
+  {Url, IOptions} = build_url(BasicUrl, Options),
+  try ibrowse:send_req(Url, [], get, [], [{basic_auth, {User, Password}},
+                                          {stream_to, self()} | IOptions]) of
+    {ibrowse_req_id, ReqId} ->
+      stream_close(OldReqId),
+      {noreply, State#state{req_id = ReqId}};
+    {ok, Status, _Headers, Body} ->
+      error_logger:error_msg("~p: Error trying to ~s twitter:~n\t~s: ~s~n", [?MODULE, Method, Status, Body]),
+      {stop, {error, {Status, Body}}, State};
+    {error, Reason} ->
+      error_logger:error_msg("~p: Error trying to ~s twitter:~n\t~p~n", [?MODULE, Method, Reason]),
+      {stop, {error, Reason}, State}
+  catch
+    _:{timeout, _} -> %% An ibrowse internal process timed out
+      error_logger:error_msg("~p: Internal timeout trying to ~s twitter~n", [?MODULE, Method]),
+      {stop, {error, internal_timeout}, State};
+    _:Error ->
+      error_logger:error_msg("~p: System Error trying to ~s twitter:~n\t~p~n", [?MODULE, Method, Error]),
+      {stop, {error, Error}, State}
+  end.
 
 %% @hidden
 -spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
@@ -281,35 +302,37 @@ parse_start_options(Options) ->
              end,
   {User, Password, proplists:delete(user, proplists:delete(password, Options))}.
 
-parse_options(BasicUrl, Options) ->
-  parse_options(Options, $?, {BasicUrl, []}).
-parse_options([], _Sep, Acc) -> Acc;
-parse_options([{count, V} | Rest], Sep, {Url, GenOptions}) ->
-  Count = list_to_binary(integer_to_list(V)),
-  parse_options(Rest, $&, {<<Url/binary, Sep, "count=", Count/binary>>, GenOptions});
-parse_options([{delimited, length} | Rest], Sep, {Url, GenOptions}) ->
-  parse_options(Rest, $&, {<<Url/binary, Sep, "delimited=length">>, GenOptions});
-parse_options([{follow, V} | Rest], Sep, {Url, GenOptions}) ->
+build_url(BasicUrl, Options) ->
+  build_url(Options, $?, BasicUrl, []).
+build_url([], _Sep, Url, Options) -> {lists:flatten(Url), Options};
+build_url([{count, V} | Rest], Sep, Url, Ops) ->
+  build_url(Rest, $&, [Url, Sep, "count=", integer_to_list(V)], Ops);
+build_url([{delimited, length} | Rest], Sep, Url, Ops) ->
+  build_url(Rest, $&, [Url, Sep, "delimited=length"], Ops);
+build_url([{follow, V} | Rest], Sep, Url, Ops) ->
   Users =
-    lists:foldl(fun(User, <<>>) ->
-                        list_to_binary(integer_to_list(User));
+    lists:foldl(fun(User, []) ->
+                        integer_to_list(User);
                    (User, Acc) ->
-                        <<Acc/binary, $,, (list_to_binary(integer_to_list(User)))/binary>>
-                end, <<>>, V),
-  parse_options(Rest, $&, {<<Url/binary, Sep, "follow=", Users/binary>>, GenOptions});
-parse_options([{track, V} | Rest], Sep, {Url, GenOptions}) ->
+                        Acc ++ [$, | integer_to_list(User)]
+                end, [], V),
+  build_url(Rest, $&, [Url, Sep, "follow=", Users], Ops);
+build_url([{track, V} | Rest], Sep, Url, Ops) ->
   Terms =
-    lists:foldl(fun(Term, <<>>) -> Term;
-                   (Term, Acc) -> <<Acc/binary, $,, Term/binary>>
-                end, <<>>, V),
-  parse_options(Rest, $&, {<<Url/binary, Sep, "track=", Terms/binary>>, GenOptions});
-parse_options([{locations, V} | Rest], Sep, {Url, GenOptions}) ->
+    lists:foldl(fun(Term, []) -> Term;
+                   (Term, Acc) -> Acc ++ [$, | Term]
+                end, [], V),
+  build_url(Rest, $&, [Url , Sep, "track=", Terms], Ops);
+build_url([{locations, V} | Rest], Sep, Url, Ops) ->
   Locations =
-    lists:foldl(fun({L1,L2,L3,L4}, <<>>) ->
-                        list_to_binary(io_lib:format("~.5g,~.5g,~.5g,~.5g", [L1,L2,L3,L4]));
+    lists:foldl(fun({L1,L2,L3,L4}, []) ->
+                        io_lib:format("~.5g,~.5g,~.5g,~.5g", [L1,L2,L3,L4]);
                    ({L1,L2,L3,L4}, Acc) ->
-                        list_to_binary(io_lib:format("~s,~.5g,~.5g,~.5g,~.5g", [Acc,L1,L2,L3,L4]))
-                end, <<>>, V),
-  parse_options(Rest, $&, {<<Url/binary, Sep, "locations=", Locations/binary>>, GenOptions});
-parse_options([O|Rest], Sep, {Url, GenOptions}) ->
-  parse_options(Rest, Sep, {Url, [O|GenOptions]}).
+                        io_lib:format("~s,~.5g,~.5g,~.5g,~.5g", [Acc,L1,L2,L3,L4])
+                end, [], V),
+  build_url(Rest, $&, [Url, Sep, "locations=", Locations], Ops);
+build_url([O|Rest], Sep, Url, Ops) ->
+  build_url(Rest, Sep, Url, [O|Ops]).
+
+stream_close(OldReqId) ->
+  ibrowse:stream_close(OldReqId).
