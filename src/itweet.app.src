@@ -1,0 +1,12 @@
+{application, itweet,
+ [
+  {description, "Access the Twitter Stream API using ibrowse"},
+  {vsn, "0.1"},
+  {registered, [itweet_sup]},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, {itweet, []}},
+	{env, []}
+ ]}.
