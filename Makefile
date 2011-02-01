@@ -21,4 +21,4 @@ xref: all
 	rebar skip_deps=true xref
 	
 run: all
-	erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin -pa deps/elog/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s elog -s ibrowse -run itweet start
+	erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s elog -s ibrowse

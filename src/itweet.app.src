@@ -2,11 +2,11 @@
  [
   {description, "Access the Twitter Stream API using ibrowse"},
   {vsn, "0.1"},
-  {registered, [itweet_sup]},
+  {registered, []},
   {applications, [
                   kernel,
                   stdlib
                  ]},
-  {mod, {itweet, []}},
+  {mod, {no_app, []}},
 	{env, []}
  ]}.
