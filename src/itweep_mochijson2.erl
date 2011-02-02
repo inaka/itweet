@@ -31,8 +31,10 @@
 
 -module(itweep_mochijson2).
 -author('bob@mochimedia.com').
+-author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
 -export([encoder/1, encode/1]).
 -export([decoder/1, decode/1]).
+-export([get_value/2, get_value/3]).
 
 % This is a macro to placate syntax highlighters..
 -define(Q, $\").
@@ -115,6 +117,26 @@ decode(S) ->
     catch
         _:Err -> throw({invalid_json, S, Err})
     end.
+
+%% @spec get_value(Key::key_val(), JsonObj::json_obj()) -> term()
+%% @type key_val() = list() | binary()
+%% @doc Returns the value of a simple key/value property in json object
+%% Equivalent to get_value(Key, JsonObj, undefined).
+-spec get_value(Key::list() | binary(), JsonObj::json_object()) -> term().
+get_value(Key, JsonObj) ->
+    get_value(Key, JsonObj, undefined).
+
+%% @spec get_value(Key::key_val(), JsonObj::json_obj(), Default::term()) -> term()
+%% @type key_val() = lis() | binary()
+%% @doc Returns the value of a simple key/value property in json object
+%% function from erlang_couchdb
+-spec get_value(Key::list() | binary(), JsonObj::json_object(), Default::term()) -> term().
+get_value(Key, JsonObj, Default) when is_list(Key) ->
+    get_value(list_to_binary(Key), JsonObj, Default);
+get_value(Key, JsonObj, Default) when is_binary(Key) ->
+    {Props} = JsonObj,
+    proplists:get_value(Key, Props, Default).
+
 
 %% Internal API
 
