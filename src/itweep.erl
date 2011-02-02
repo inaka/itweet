@@ -46,23 +46,6 @@
 
 -behaviour(gen_server).
 
-%% @type json_string() = atom() | binary(). JSON Strings
-%% @type json_number() = integer() | float(). JSON Numbers
-%% @type json_array()  = [json_term()]. JSON Arrays
-%% @type json_object() = {[{json_string(), json_term()}]}. JSON Objects
-%% @type json_boolean()= boolean(). JSON Booleans
-%% @type json_null()   = null. JSON Null object
-%% @type json_term()   = json_string() | json_number() | json_array() | json_object() | json_null() | json_boolean(). JSON Terms
--type json_string() :: atom() | binary().
--type json_number() :: integer() | float().
--type json_array()  :: [json_term()].
--type json_object() :: {[{json_string(), json_term()}]}.
--type json_boolean():: boolean().
--type json_null()   :: null.
--type json_term()   :: json_string() | json_number() | json_array() | json_object() | json_null() | json_boolean().
--export_type([json_string/0, json_number/0, json_array/0, json_object/0, json_boolean/0,
-              json_null/0, json_term/0, gen_start_option/0, start_option/0, start_result/0]).
-
 %% @type gen_start_option() = {timeout, non_neg_integer() | infinity | hibernate} |
 %%                            {debug, [trace | log | {logfile, string()} | statistics | debug]}. Generic start options (derived from gen_server)
 %% @type required_option() = {user, string()}
@@ -74,6 +57,7 @@
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
 -type start_option() :: {user, string()} | {password, string()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
+-export_type([gen_start_option/0, start_option/0, start_result/0]).
 
 %% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}
 %% @type handler_result()  = {ok, State::term()} | {stop, Reason::term(), State::term()}
@@ -111,11 +95,14 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTERNALS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--record(state, {module    :: atom(), % Callback module
-                mod_state :: term(), % Callback module state
-                user      :: string(),
-                password  :: string(),
-                req_id    :: undefined | ibrowse:req_id()
+-record(state, {module      :: atom(), % Callback module
+                mod_state   :: term(), % Callback module state
+                user        :: string(),
+                password    :: string(),
+                req_id      :: undefined | ibrowse:req_id(),
+                buffer      :: binary(),
+                http_status :: string(),
+                http_headers:: [{string(), string()}]
                }).
 -opaque state() :: #state{}.
 
@@ -247,41 +234,128 @@ handle_cast({Method, Options}, State = #state{user = User, password = Password, 
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
   try ibrowse:send_req(Url, [], get, [], [{basic_auth, {User, Password}},
-                                          {stream_to, self()} | IOptions]) of
+                                          {stream_to, {self(), once}},
+                                          {response_format, binary} | IOptions], infinity) of
     {ibrowse_req_id, ReqId} ->
       stream_close(OldReqId),
       {noreply, State#state{req_id = ReqId}};
     {ok, Status, _Headers, Body} ->
-      error_logger:error_msg("~p: Error trying to ~s twitter:~n\t~s: ~s~n", [?MODULE, Method, Status, Body]),
+      error_logger:error_msg("~p - ~p: Error trying to ~s twitter:~n\t~s: ~s~n", [calendar:local_time(), ?MODULE, Method, Status, Body]),
       {stop, {error, {Status, Body}}, State};
     {error, Reason} ->
-      error_logger:error_msg("~p: Error trying to ~s twitter:~n\t~p~n", [?MODULE, Method, Reason]),
+      error_logger:error_msg("~p - ~p: Error trying to ~s twitter:~n\t~p~n", [calendar:local_time(), ?MODULE, Method, Reason]),
       {stop, {error, Reason}, State}
   catch
     _:{timeout, _} -> %% An ibrowse internal process timed out
-      error_logger:error_msg("~p: Internal timeout trying to ~s twitter~n", [?MODULE, Method]),
+      error_logger:error_msg("~p - ~p: Internal timeout trying to ~s twitter~n", [calendar:local_time(), ?MODULE, Method]),
       {stop, {error, internal_timeout}, State};
     _:Error ->
-      error_logger:error_msg("~p: System Error trying to ~s twitter:~n\t~p~n", [?MODULE, Method, Error]),
+      error_logger:error_msg("~p - ~p: System Error trying to ~s twitter:~n\t~p~n", [calendar:local_time(), ?MODULE, Method, Error]),
       {stop, {error, Error}, State}
   end.
 
 %% @hidden
+%% RESPONSE HEADERS --------------------------------------------------------------------------------
 -spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
-%%TODO: Catch the ibrowse cases!!
+handle_info({ibrowse_async_headers, ReqId, Code, Headers}, State = #state{req_id    = ReqId,
+                                                                          module    = Mod,
+                                                                          mod_state = ModState}) ->
+  NewState =
+    State#state{http_status = Code,
+                http_headers= Headers,
+                buffer      = <<>>},
+  case run_handler(fun() -> Mod:handle_event(stream_start, null, ModState) end) of
+    {ok, NewModSt} ->
+      ok = ibrowse:stream_next(ReqId),
+      {noreply, NewState#state{mod_state = NewModSt}};
+    {stop, Reason, NewModSt} ->
+      {stop, Reason, NewState#state{mod_state = NewModSt}}
+  end;
+handle_info({ibrowse_async_headers, _OldReqId, Code, Headers}, State) ->
+  error_logger:warning_msg("~p - ~p: old req headers: ~p - ~p~n", [calendar:local_time(), ?MODULE, Code, Headers]),
+  {noreply, State};
+%% RESPONSE BODY -----------------------------------------------------------------------------------
+handle_info({ibrowse_async_response, ReqId, {error, req_timedout}}, State = #state{req_id = ReqId}) ->
+  error_logger:error_msg("~p - ~p: There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
+  {stop, normal, State};
+handle_info({ibrowse_async_response, ReqId, {error, Error}}, State = #state{req_id = ReqId}) ->
+  error_logger:error_msg("~p - ~p: Error querying twitter: ~p~n", [calendar:local_time(), ?MODULE, Error]),
+  {stop, {error, Error}, State};
+handle_info({ibrowse_async_response, ReqId, <<>>}, State = #state{req_id = ReqId}) ->
+  {noreply, State};
+handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = ReqId,
+                                                                  module      = Mod,
+                                                                  http_status = "200",
+                                                                  mod_state   = ModState,
+                                                                  buffer      = Buffer}) ->
+  case binary:split(Body, <<$\r>>, [global, trim]) of
+    [Body] -> %% No \r
+      ok = ibrowse:stream_next(ReqId),
+      {noreply, State#state{buffer = <<Buffer/binary, Body/binary>>}};
+    [Head|Tail] ->
+      {Jsons, NewBuffer} = extract_jsons([<<Buffer/binary, Head/binary>> | Tail]),
+      NewModSt =
+       lists:foldl(
+         fun(Json, AccModSt) ->
+                 Fun = case Json of
+                         {[{Event, Data}]} ->
+                           fun() -> Mod:handle_event(binary_to_atom(Event, utf8),
+                                                     Data, AccModSt)
+                           end;
+                         Status ->
+                           fun() -> Mod:handle_status(Status, AccModSt) end
+                       end,
+                 case run_handler(Fun) of
+                   {ok, NextModSt} -> NextModSt;
+                   {stop, Reason, NextModSt} ->
+                     throw({stop, Reason, State#state{mod_state = NextModSt}})
+                 end
+         end, ModState, Jsons),
+      ok = ibrowse:stream_next(ReqId),
+      {noreply, State#state{buffer = NewBuffer, mod_state = NewModSt}}
+  end;
+handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = ReqId,
+                                                                  module      = Mod,
+                                                                  http_status = Code,
+                                                                  http_headers= Headers,
+                                                                  mod_state   = ModState}) ->
+  case run_handler(
+         fun() ->
+                 Mod:handle_event(stream_error, headers_to_json(Code, Headers, Body), ModState)
+         end) of
+    {ok, NewModSt} ->
+      ok = ibrowse:stream_next(ReqId),
+      {noreply, State#state{mod_state = NewModSt}};
+    {stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
+  end;
+handle_info({ibrowse_async_response, _OldReqId, Body}, State = #state{req_id = ReqId}) ->
+  error_logger:warning_msg("~p - ~p: old req response: ~p~n", [calendar:local_time(), ?MODULE, Body]),
+  ok = ibrowse:stream_next(ReqId),
+  {noreply, State};
+%% RESPONSE END ------------------------------------------------------------------------------------
+handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id    = ReqId,
+                                                                module    = Mod,
+                                                                mod_state = ModState}) ->
+  case run_handler(fun() -> Mod:handle_event(stream_end, null, ModState) end) of
+    {ok, NewModSt} ->
+      {stop, normal, State#state{mod_state = NewModSt, req_id = undefined}};
+    {stop, Reason, NewModSt} ->
+      {stop, Reason, State#state{mod_state = NewModSt}}
+  end;
+handle_info({ibrowse_async_response_end, _OldReqId}, State) ->
+  error_logger:info_msg("~p - ~p: old req end~n", [calendar:local_time(), ?MODULE]),
+  {noreply, State};
+%% OTHERs ------------------------------------------------------------------------------------------
 handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
-  try Mod:handle_info(Info, ModState) of
+  case run_handler(fun() -> Mod:handle_info(Info, ModState) end) of
     {ok, NewModSt} -> {noreply, State#state{mod_state = NewModSt}};
     {stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
-  catch
-    _:{ok, NewModSt} -> {noreply, State#state{mod_state = NewModSt}};
-    _:{stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
   end.
 
 %% @hidden
 -spec terminate(any(), #state{}) -> any().
-terminate(Reason, #state{module = Mod, mod_state = ModState}) ->
-  %%TODO: Close the ibrowse connection!!
+terminate(Reason, #state{module = Mod, mod_state = ModState, req_id = ReqId}) ->
+  stream_close(ReqId),
   Mod:terminate(Reason, ModState).
 
 %% @hidden
@@ -334,5 +408,36 @@ build_url([{locations, V} | Rest], Sep, Url, Ops) ->
 build_url([O|Rest], Sep, Url, Ops) ->
   build_url(Rest, Sep, Url, [O|Ops]).
 
+stream_close(undefined) -> ok;
 stream_close(OldReqId) ->
   ibrowse:stream_close(OldReqId).
+
+run_handler(Fun) ->
+  try Fun() of
+    {ok, NewModSt} -> {ok, NewModSt};
+    {stop, Reason, NewModSt} -> {stop, Reason, NewModSt};
+    Other -> throw({bad_return, Other})
+  catch
+    _:{ok, NewModSt} -> {ok, NewModSt};
+    _:{stop, Reason, NewModSt} -> {stop, Reason, NewModSt}
+  end.
+
+headers_to_json(Code, Headers, Body) ->
+  {{code,     list_to_binary(Code)},
+   {body,     Body},
+   {headers,  lists:map(fun({K,V}) -> {list_to_binary(K), list_to_binary(V)} end, Headers)}}.
+
+extract_jsons(Lines) ->
+  extract_jsons(Lines, []).
+extract_jsons([], Acc) ->
+  {lists:reverse(Acc), <<>>};
+extract_jsons([<<$\n>>], Acc) ->
+  {lists:reverse(Acc), <<>>};
+extract_jsons([NewBuffer], Acc) ->
+  {lists:reverse(Acc), NewBuffer};
+extract_jsons([<<>> | Rest], Acc) ->
+  extract_jsons(Rest, Acc);
+extract_jsons([<<$\n>> | Rest], Acc) ->
+  extract_jsons(Rest, Acc);
+extract_jsons([Next | Rest], Acc) ->
+  extract_jsons(Rest, [itweep_mochijson2:decode(Next)  | Acc]).

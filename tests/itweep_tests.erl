@@ -44,34 +44,35 @@ stop(Pid) ->
 %% @hidden
 -spec init(Args::term()) -> itweep:init_result().
 init([]) ->
+  io:format("~p - ~p: init~n", [calendar:local_time(), ?MODULE]),
   {ok, #state{}}.
 
 %% @hidden
 -spec handle_status(Status::itweep:json_object(), State::term()) -> itweep:handler_result().
 handle_status(Status, State) ->
-  io:format("~p:~p -> Status: ~p~n", [?MODULE, ?LINE, Status]),
+  io:format("~p - ~p:~p -> Status:~n\t~p~n", [calendar:local_time(), ?MODULE, ?LINE, Status]),
   {ok, State}.
 
 %% @hidden
 -spec handle_event(Event::atom(), Data::itweep:json_object(), State::term()) -> itweep:handler_result().
 handle_event(Event, Data, State) ->
-  io:format("~p:~p -> ~p: ~p~n", [?MODULE, ?LINE, Event, Data]),
+  io:format("~p - ~p:~p -> ~p: ~p~n", [calendar:local_time(), ?MODULE, ?LINE, Event, Data]),
   {ok, State}.
 
 %% @hidden
 -spec handle_call(Msg::term(), From::reference(), State::term()) -> itweep:call_result().
 handle_call(stop, _From, State) ->
-  io:format("~p:~p stopping~n", [?MODULE, ?LINE]),
+  io:format("~p - ~p:~p stopping~n", [calendar:local_time(), ?MODULE, ?LINE]),
   {stop, normal, ok, State}.
 
 %% @hidden
 -spec handle_info(Msg::term(), State::term()) -> itweep:handler_result().
 handle_info(Msg, State) ->
-  io:format("~p:~p -> info:~n\t~p~n", [?MODULE, ?LINE, Msg]),
+  io:format("~p - ~p:~p -> info:~n\t~p~n", [calendar:local_time(), ?MODULE, ?LINE, Msg]),
   {ok, State}.
 
 %% @hidden
 -spec terminate(Reason :: normal | shutdown | term(), State::term()) -> _.
 terminate(Reason, _State) ->
-  io:format("~p:~p terminating: ~p~n", [?MODULE, ?LINE, Reason]),
+  io:format("~p - ~p:~p terminating: ~p~n", [calendar:local_time(), ?MODULE, ?LINE, Reason]),
   ok.
