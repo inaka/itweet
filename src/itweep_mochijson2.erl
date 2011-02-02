@@ -111,7 +111,7 @@ decoder(Options) ->
 
 %% @spec decode(iolist()) -> json_term()
 %% @doc Decode the given iolist to Erlang terms.
--spec decode(iolist()) -> itweep:json_term().
+-spec decode(iolist()) -> json_term().
 decode(S) ->
     try json_decode(S, #decoder{})
     catch

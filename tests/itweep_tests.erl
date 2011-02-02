@@ -49,13 +49,15 @@ init([]) ->
 
 %% @hidden
 -spec handle_status(Status::itweep:json_object(), State::term()) -> itweep:handler_result().
-handle_status(Status, State) ->
-  User = case itweep_mochijson2:get_value("user", Status) of
-           undefined -> "An annonymous user";
-           JsonObj -> itweep_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
-         end,
-  Text = itweep_mochijson2:get_value("text", Status, "nothing (o_O)"),  
-  io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
+handle_status(_Status, State) ->
+%% handle_status(Status, State) ->
+%%   User = case itweep_mochijson2:get_value("user", Status) of
+%%            undefined -> "An annonymous user";
+%%            JsonObj -> itweep_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
+%%          end,
+%%   Text = itweep_mochijson2:get_value("text", Status, "nothing (o_O)"),  
+%%   io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
+  io:format("."),
   {ok, State}.
 
 %% @hidden
