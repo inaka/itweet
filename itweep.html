@@ -20,19 +20,19 @@
    The user module should export:
   <ul>
      <li>
-     <pre>init(Args::term()) -&gt; init_result()</pre>
+     <pre>init(Args::term()) -&gt; <a href="#type-init_result"><code>init_result()</code></a></pre>
        Opens and/or initializes the client.<br>
      </li><li>
-     <pre>handle_status(Status::json_object(), State::term()) -&gt; handler_result()</pre>
+     <pre>handle_status(Status::<a href="itweep_mochijson2.html#type-json_object"><code>itweep_mochijson2:json_object()</code></a>, State::term()) -&gt; <a href="#type-handler_result"><code>handler_result()</code></a></pre>
        Called each time an status is received from twitter<br>
      </li><li>
-     <pre>handle_event(Event::atom(), Data::json_object(), State::term()) -&gt; handler_result()</pre>
+     <pre>handle_event(Event::atom(), Data::<a href="itweep_mochijson2.html#type-json_object"><code>itweep_mochijson2:json_object()</code></a>, State::term()) -&gt; <a href="#type-handler_result"><code>handler_result()</code></a></pre>
        Called each time an event is received from twitter<br>
      </li><li>
-     <pre>handle_call(Msg::term(), From::reference(), State::term()) -&gt; call_result() </pre>
+     <pre>handle_call(Msg::term(), From::reference(), State::term()) -&gt; <a href="#type-call_result"><code>call_result()</code></a></pre>
        Called from <code>itweep:call/2</code><br>
      </li><li>
-     <pre>handle_info(Msg::term(), State::term()) -&gt; handler_result()</pre>
+     <pre>handle_info(Msg::term(), State::term()) -&gt; <a href="#type-handler_result"><code>handler_result()</code></a></pre>
        Called each time an erlang message is received<br>
      </li><li>
      <pre>terminate(Reason :: normal | shutdown | term(), State) -&gt; _</pre>
@@ -42,15 +42,15 @@
 
 <h3 class="typedecl"><a name="type-call_result">call_result()</a></h3>
 <p><tt>call_result() = {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}</tt></p>
-
+<p>The expected result for Mod:handle_call/3</p>
 
 <h3 class="typedecl"><a name="type-filter_option">filter_option()</a></h3>
 <p><tt>filter_option() = <a href="#type-gen_option">gen_option()</a> | {follow, [<a href="#type-pos_integer">pos_integer()</a>]} | {track, [string()]} | {locations, [<a href="#type-location">location()</a>]}</tt></p>
-<p>Options for filter/2</p>
+<p>Options for <a href="#filter-2"><code>filter/2</code></a></p>
 
 <h3 class="typedecl"><a name="type-gen_option">gen_option()</a></h3>
 <p><tt>gen_option() = {count, integer()}</tt></p>
-<p>Options for firehose/2, links/2</p>
+<p>Options for <a href="#firehose-2"><code>firehose/2</code></a>, <a href="#links-2"><code>links/2</code></a></p>
 
 <h3 class="typedecl"><a name="type-gen_start_option">gen_start_option()</a></h3>
 <p><tt>gen_start_option() = {timeout, <a href="#type-non_neg_integer">non_neg_integer()</a> | infinity | hibernate} | {debug, [trace | log | {logfile, string()} | statistics | debug]}</tt></p>
@@ -58,11 +58,11 @@
 
 <h3 class="typedecl"><a name="type-handler_result">handler_result()</a></h3>
 <p><tt>handler_result() = {ok, State::term()} | {stop, Reason::term(), State::term()}</tt></p>
-
+<p>The expected result for Mod:handle_status/2, Mod:handle_info/2 and Mod:handle_event/3</p>
 
 <h3 class="typedecl"><a name="type-init_result">init_result()</a></h3>
 <p><tt>init_result() = {ok, State::term()} | ignore | {stop, Reason::term()}</tt></p>
-
+<p>The expected result for Mod:init/1</p>
 
 <h3 class="typedecl"><a name="type-location">location()</a></h3>
 <p><tt>location() = {float(), float(), float(), float()}</tt></p>
@@ -70,7 +70,7 @@
 
 <h3 class="typedecl"><a name="type-required_option">required_option()</a></h3>
 <p><tt>required_option() = {user, string()} | {password, string()}</tt></p>
-
+<p>Mandatory start options</p>
 
 <h3 class="typedecl"><a name="type-server">server()</a></h3>
 <p><tt>server() = atom() | pid() | {global, atom()}</tt></p>
@@ -78,7 +78,7 @@
 
 <h3 class="typedecl"><a name="type-start_option">start_option()</a></h3>
 <p><tt>start_option() = <a href="#type-required_option">required_option()</a> | <a href="#type-gen_start_option">gen_start_option()</a></tt></p>
-<p><b>itweep</b> start options (taken from the Twitter Stream API)</p>
+<p><b>itweep</b> start options (most of them come from gen_server)</p>
 
 <h3 class="typedecl"><a name="type-start_result">start_result()</a></h3>
 <p><tt>start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}</tt></p>
@@ -88,11 +88,11 @@
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#call-2">call/2</a></td><td>Make a call to a generic server.</td></tr>
 <tr><td valign="top"><a href="#call-3">call/3</a></td><td>Make a call to a generic server.</td></tr>
 <tr><td valign="top"><a href="#current_method-1">current_method/1</a></td><td>Current method.</td></tr>
-<tr><td valign="top"><a href="#filter-2">filter/2</a></td><td> Starts using the statuses/filter method to get results.</td></tr>
-<tr><td valign="top"><a href="#firehose-2">firehose/2</a></td><td> Starts using the statuses/firehose method to get results.</td></tr>
-<tr><td valign="top"><a href="#links-2">links/2</a></td><td> Starts using the statuses/links method to get results.</td></tr>
-<tr><td valign="top"><a href="#retweet-2">retweet/2</a></td><td> Starts using the statuses/retweet method to get results.</td></tr>
-<tr><td valign="top"><a href="#sample-2">sample/2</a></td><td> Starts using the statuses/sample method to get results.</td></tr>
+<tr><td valign="top"><a href="#filter-2">filter/2</a></td><td> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results.</td></tr>
+<tr><td valign="top"><a href="#firehose-2">firehose/2</a></td><td> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-firehose">statuses/firehose</a> method to get results.</td></tr>
+<tr><td valign="top"><a href="#links-2">links/2</a></td><td> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-links">statuses/links</a> method to get results.</td></tr>
+<tr><td valign="top"><a href="#retweet-2">retweet/2</a></td><td> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-retweet">statuses/retweet</a> method to get results.</td></tr>
+<tr><td valign="top"><a href="#sample-2">sample/2</a></td><td> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-sample">statuses/sample</a> method to get results.</td></tr>
 <tr><td valign="top"><a href="#start-3">start/3</a></td><td> Starts a generic server.</td></tr>
 <tr><td valign="top"><a href="#start-4">start/4</a></td><td> Starts a named generic server.</td></tr>
 <tr><td valign="top"><a href="#start_link-3">start_link/3</a></td><td> Starts and links a generic server.</td></tr>
@@ -124,27 +124,27 @@
 <h3 class="function"><a name="filter-2">filter/2</a></h3>
 <div class="spec">
 <p><tt>filter(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-filter_option">filter_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
-</div><p> Starts using the statuses/filter method to get results</p>
+</div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results</p>
 
 <h3 class="function"><a name="firehose-2">firehose/2</a></h3>
 <div class="spec">
 <p><tt>firehose(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
-</div><p> Starts using the statuses/firehose method to get results</p>
+</div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-firehose">statuses/firehose</a> method to get results</p>
 
 <h3 class="function"><a name="links-2">links/2</a></h3>
 <div class="spec">
 <p><tt>links(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
-</div><p> Starts using the statuses/links method to get results</p>
+</div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-links">statuses/links</a> method to get results</p>
 
 <h3 class="function"><a name="retweet-2">retweet/2</a></h3>
 <div class="spec">
 <p><tt>retweet(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
-</div><p> Starts using the statuses/retweet method to get results</p>
+</div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-retweet">statuses/retweet</a> method to get results</p>
 
 <h3 class="function"><a name="sample-2">sample/2</a></h3>
 <div class="spec">
 <p><tt>sample(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
-</div><p> Starts using the statuses/sample method to get results</p>
+</div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-sample">statuses/sample</a> method to get results</p>
 
 <h3 class="function"><a name="start-3">start/3</a></h3>
 <div class="spec">
@@ -168,6 +168,6 @@
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Feb 3 2011, 13:42:54.</i></p>
+<p><i>Generated by EDoc, Feb 3 2011, 14:13:07.</i></p>
 </body>
 </html>

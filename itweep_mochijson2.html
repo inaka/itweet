@@ -13,26 +13,7 @@
 <p>Copyright © 2007 Mochi Media, Inc.</p>
 
 <p><b>Authors:</b> Bob Ippolito (<a href="mailto:bob@mochimedia.com"><tt>bob@mochimedia.com</tt></a>), Fernando Benavides (<a href="mailto:fernando.benavides@inakanetworks.com"><tt>fernando.benavides@inakanetworks.com</tt></a>).</p>
-<p><b>References</b><ul><li><p><a href="https://github.com/elbrujohalcon/couchbeam/blob/master/src/couchbeam_mochijson2.erl">Original</a></p>
- 
-  <p>Permission is hereby granted, free of charge, to any person obtaining a copy  
-of this software and associated documentation files (the "Software"), to deal  
-in the Software without restriction, including without limitation the rights  
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell  
-copies of the Software, and to permit persons to whom the Software is  
-furnished to do so, subject to the following conditions:</p>
- 
-  <p>The above copyright notice and this permission notice shall be included in  
-all copies or substantial portions of the Software.</p>
- 
-  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-  THE SOFTWARE.
- </li></ul></p>
+<p><b>References</b><ul><li><a href="https://github.com/elbrujohalcon/couchbeam/blob/master/src/couchbeam_mochijson2.erl">Original</a></li></ul></p>
 
 <h2><a name="description">Description</a></h2><p>JSON (RFC 4627) library for Erlang taken from couchbeam. mochijson2 works       
 with binaries as strings, arrays as lists (without an {array, _})       
@@ -43,8 +24,12 @@ wrapper and it only knows how to decode UTF-8 (and ASCII).</p>
  
 <h2><a name="types">Data Types</a></h2>
 
+<h3 class="typedecl"><a name="type-decoder_option">decoder_option()</a></h3>
+<p><tt>decoder_option() = {object_hook, <a href="#type-hook">hook()</a>}</tt></p>
+
+
 <h3 class="typedecl"><a name="type-encoder_option">encoder_option()</a></h3>
-<p><tt>encoder_option() = <a href="#type-handler_option">handler_option()</a> | <a href="#type-utf8_option">utf8_option()</a></tt></p>
+<p><tt>encoder_option() = {handler, <a href="#type-handler">handler()</a>} | {utf8, <a href="#type-boolean">boolean()</a>}</tt></p>
 
 
 <h3 class="typedecl"><a name="type-json_array">json_array()</a></h3>
@@ -80,20 +65,15 @@ wrapper and it only knows how to decode UTF-8 (and ASCII).</p>
 
 
 <h3 class="typedecl"><a name="type-key_val">key_val()</a></h3>
-<p><tt>key_val() = <a href="#type-lis">lis()</a> | binary()</tt></p>
+<p><tt>key_val() = list() | binary()</tt></p>
 
-
-<h3 class="typedecl"><a name="type-utf8_option">utf8_option()</a></h3>
-<p><tt>utf8_option() = <a href="#type-boolean">boolean()</a></tt></p>
-<p>Emit unicode as utf8 (default - false)</p>
 
 <h2><a name="index">Function Index</a></h2>
 <table width="100%" border="1" cellspacing="0" cellpadding="2" summary="function index"><tr><td valign="top"><a href="#decode-1">decode/1</a></td><td>Decode the given iolist to Erlang terms.</td></tr>
 <tr><td valign="top"><a href="#decoder-1">decoder/1</a></td><td>Create a decoder/1 with the given options.</td></tr>
 <tr><td valign="top"><a href="#encode-1">encode/1</a></td><td>Encode the given as JSON to an iolist.</td></tr>
 <tr><td valign="top"><a href="#encoder-1">encoder/1</a></td><td>Create an encoder/1 with the given options.</td></tr>
-<tr><td valign="top"><a href="#get_value-2">get_value/2</a></td><td>Returns the value of a simple key/value property in json object
-  Equivalent to get_value(Key, JsonObj, undefined).</td></tr>
+<tr><td valign="top"><a href="#get_value-2">get_value/2</a></td><td>Returns the value of a simple key/value property in json object.</td></tr>
 <tr><td valign="top"><a href="#get_value-3">get_value/3</a></td><td>Returns the value of a simple key/value property in json object
   function from erlang_couchdb.</td></tr>
 </table>
@@ -122,18 +102,18 @@ wrapper and it only knows how to decode UTF-8 (and ASCII).</p>
 
 <h3 class="function"><a name="get_value-2">get_value/2</a></h3>
 <div class="spec">
-<p><tt>get_value(Key::<a href="#type-key_val">key_val()</a>, JsonObj::<a href="#type-json_obj">json_obj()</a>) -&gt; term()</tt></p>
-</div><p>Returns the value of a simple key/value property in json object
-  Equivalent to get_value(Key, JsonObj, undefined).</p>
+<p><tt>get_value(Key::<a href="#type-key_val">key_val()</a>, JsonObj::<a href="#type-json_object">json_object()</a>) -&gt; term()</tt></p>
+</div><p>Equivalent to <a href="#get_value-3"><tt>get_value(Key, JsonObj, undefined)</tt></a>.</p>
+<p>Returns the value of a simple key/value property in json object.</p>
 
 <h3 class="function"><a name="get_value-3">get_value/3</a></h3>
 <div class="spec">
-<p><tt>get_value(Key::<a href="#type-key_val">key_val()</a>, JsonObj::<a href="#type-json_obj">json_obj()</a>, Default::term()) -&gt; term()</tt></p>
+<p><tt>get_value(Key::<a href="#type-key_val">key_val()</a>, JsonObj::<a href="#type-json_object">json_object()</a>, Default::term()) -&gt; term()</tt></p>
 </div><p>Returns the value of a simple key/value property in json object
   function from erlang_couchdb</p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Feb 3 2011, 13:42:54.</i></p>
+<p><i>Generated by EDoc, Feb 3 2011, 14:13:07.</i></p>
 </body>
 </html>
