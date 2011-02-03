@@ -113,7 +113,7 @@ decoder(Options) ->
 
 %% @spec decode(iolist()) -> json_term()
 %% @doc Decode the given iolist to Erlang terms.
--spec decode(iolist()) -> json_term().
+-spec decode(iodata()) -> json_term().
 decode(S) ->
     try json_decode(S, #decoder{})
     catch
@@ -163,7 +163,7 @@ json_encode(null, _State) ->
 json_encode(I, _State) when is_integer(I) ->
     integer_to_list(I);
 json_encode(F, _State) when is_float(F) ->
-    couchbeam_mochinum:digits(F);
+    itweep_mochinum:digits(F);
 json_encode(S, State) when is_binary(S); is_atom(S) ->
     json_encode_string(S, State);
 json_encode(Array, State) when is_list(Array) ->

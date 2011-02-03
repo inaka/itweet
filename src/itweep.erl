@@ -230,7 +230,7 @@ init({Mod, InitArgs, User, Password}) ->
   end.
 
 %% @hidden
--spec handle_call(term(), reference(), state()) -> {reply, term(), state()} | {noreply, term()} | {stop, normal | shutdown | term(), term(), state()}.
+-spec handle_call(term(), reference(), state()) -> {reply, term(), state()} | {stop, normal | shutdown | term(), term(), state()}.
 handle_call(current_method, _From, State = #state{method = Method}) ->
   {reply, Method, State};
 handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModState}) ->
@@ -425,7 +425,10 @@ build_url([O|Rest], Sep, Url, Ops) ->
 
 stream_close(undefined) -> ok;
 stream_close(OldReqId) ->
-  ibrowse:stream_close(OldReqId).
+  case ibrowse:stream_close(OldReqId) of
+    ok -> ok;
+    {error, unknown_req_id} -> ok
+  end.
 
 run_handler(Fun) ->
   try Fun() of

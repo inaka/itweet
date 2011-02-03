@@ -23,6 +23,7 @@
 -behaviour(itweep).
 
 -record(state, {}).
+-opaque state() :: #state{}.
 
 -export([start/2, stop/1]).
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).
@@ -42,13 +43,13 @@ stop(Pid) ->
 %% ITWEEP FUNCTIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% @hidden
--spec init(Args::term()) -> itweep:init_result().
+-spec init(Args::term()) -> {ok, state()}.
 init([]) ->
   io:format("~p - ~p: init~n", [calendar:local_time(), ?MODULE]),
   {ok, #state{}}.
 
 %% @hidden
--spec handle_status(Status::itweep:json_object(), State::term()) -> itweep:handler_result().
+-spec handle_status(Status::itweep_mochijson2:json_object(), State::term()) -> {ok, state()}.
 handle_status(_Status, State) ->
 %% handle_status(Status, State) ->
 %%   User = case itweep_mochijson2:get_value("user", Status) of
@@ -61,19 +62,19 @@ handle_status(_Status, State) ->
   {ok, State}.
 
 %% @hidden
--spec handle_event(Event::atom(), Data::itweep:json_object(), State::term()) -> itweep:handler_result().
+-spec handle_event(Event::atom(), Data::itweep_mochijson2:json_object(), State::term()) -> {ok, state()}.
 handle_event(Event, Data, State) ->
   io:format("~p - ~p:~p -> ~p: ~p~n", [calendar:local_time(), ?MODULE, ?LINE, Event, Data]),
   {ok, State}.
 
 %% @hidden
--spec handle_call(Msg::term(), From::reference(), State::term()) -> itweep:call_result().
+-spec handle_call(Msg::term(), From::reference(), State::term()) -> {stop, normal, ok, state()}.
 handle_call(stop, _From, State) ->
   io:format("~p - ~p:~p stopping~n", [calendar:local_time(), ?MODULE, ?LINE]),
   {stop, normal, ok, State}.
 
 %% @hidden
--spec handle_info(Msg::term(), State::term()) -> itweep:handler_result().
+-spec handle_info(Msg::term(), State::term()) -> {ok, state()}.
 handle_info(Msg, State) ->
   io:format("~p - ~p:~p -> info:~n\t~p~n", [calendar:local_time(), ?MODULE, ?LINE, Msg]),
   {ok, State}.

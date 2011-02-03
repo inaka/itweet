@@ -12,7 +12,7 @@ build_plt: all
 	rebar skip_deps=true build-plt
 
 analyze: all
-	rebar skip_deps=true dialyze
+	dialyzer --plt ~/.itweet_dialyzer_plt -Wunmatched_returns -Werror_handling -Wbehaviours ebin
 
 doc: all
 	rebar skip_deps=true doc
