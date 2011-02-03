@@ -2,6 +2,7 @@
 %% @author Fernando Benavides <fernando.benavides@inakanetworks.com>
 %% @copyright 2007 Mochi Media, Inc.
 %% @reference <a href="https://github.com/elbrujohalcon/couchbeam/blob/master/src/couchbeam_mochijson2.erl">Original</a>
+%% @end
 %%
 %% Permission is hereby granted, free of charge, to any person obtaining a copy
 %% of this software and associated documentation files (the "Software"), to deal
@@ -78,6 +79,9 @@
 -type encoder_option() :: term() | {utf8, boolean()}.
 -type decoder_option() :: term().
 
+%% @type encoder_option() = {handler, handler()} | {utf8, boolean()}.
+%% @type decoder_option() = {object_hook, hook()}.
+
 -record(encoder, {handler = null  :: null | fun((term()) -> term()),
                   utf8    = true  :: boolean()}).
 
@@ -89,8 +93,6 @@
 
 %% @spec encoder([encoder_option()]) -> function()
 %% @doc Create an encoder/1 with the given options.
-%% @type encoder_option() = handler_option() | utf8_option()
-%% @type utf8_option() = boolean(). Emit unicode as utf8 (default - false)
 -spec encoder([encoder_option()]) -> fun((term()) -> iolist()).
 encoder(Options) ->
     State = parse_encoder_options(Options, #encoder{}),
@@ -118,16 +120,16 @@ decode(S) ->
         _:Err -> throw({invalid_json, S, Err})
     end.
 
-%% @spec get_value(Key::key_val(), JsonObj::json_obj()) -> term()
+%% @spec get_value(Key::key_val(), JsonObj::json_object()) -> term()
 %% @type key_val() = list() | binary()
-%% @doc Returns the value of a simple key/value property in json object
-%% Equivalent to get_value(Key, JsonObj, undefined).
+%% @doc Returns the value of a simple key/value property in json object.
+%% @equiv get_value(Key, JsonObj, undefined)
 -spec get_value(Key::list() | binary(), JsonObj::json_object()) -> term().
 get_value(Key, JsonObj) ->
     get_value(Key, JsonObj, undefined).
 
-%% @spec get_value(Key::key_val(), JsonObj::json_obj(), Default::term()) -> term()
-%% @type key_val() = lis() | binary()
+%% @spec get_value(Key::key_val(), JsonObj::json_object(), Default::term()) -> term()
+%% @type key_val() = list() | binary()
 %% @doc Returns the value of a simple key/value property in json object
 %% function from erlang_couchdb
 -spec get_value(Key::list() | binary(), JsonObj::json_object(), Default::term()) -> term().

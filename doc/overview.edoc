@@ -10,5 +10,5 @@
   it to use the <b>Twitter Stream API</b> with its credentials.
 == Usage ==
 Just implement the functions defined by the <b>itweep</b> behaviour and then call
-<code>itweep:start/3</code>, <code>itweep:start/4</code>, <code>itweep:start_link/3</code> or
-<code>itweep:start_link/4</code> :)
+{@link itweep:start/3}, {@link itweep:start/4}, {@link itweep:start_link/3} or
+{@link itweep:start_link/4} :)

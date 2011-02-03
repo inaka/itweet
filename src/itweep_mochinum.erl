@@ -1,7 +1,7 @@
 %% @copyright 2007 Mochi Media, Inc.
 %% @author Bob Ippolito <bob@mochimedia.com>
 %% @reference <a href="https://github.com/elbrujohalcon/couchbeam/blob/master/src/couchbeam_mochinum.erl">Original</a>
-%%
+%% @end
 %% Copyright (c) 2007 Mochi Media, Inc.
 %% 
 %% Permission is hereby granted, free of charge, to any person obtaining a copy

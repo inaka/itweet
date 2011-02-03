@@ -6,19 +6,19 @@
 %%% The user module should export:
 %%%<ul>
 %%%   <li>
-%%%   <pre>init(Args::term()) -> init_result()</pre>
+%%%   <pre>init(Args::term()) -> {@link init_result()}</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::json_object(), State::term()) -> handler_result()</pre>  
+%%%   <pre>handle_status(Status::{@link itweep_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>  
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_event(Event::atom(), Data::json_object(), State::term()) -> handler_result()</pre>
+%%%   <pre>handle_event(Event::atom(), Data::{@link itweep_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an event is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> call_result() </pre>
+%%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> {@link call_result()}</pre>
 %%%     Called from <code>itweep:call/2</code><br/>
 %%%   </li><li>
-%%%   <pre>handle_info(Msg::term(), State::term()) -> handler_result()</pre>
+%%%   <pre>handle_info(Msg::term(), State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an erlang message is received<br/>
 %%%   </li><li>
 %%%   <pre>terminate(Reason :: normal | shutdown | term(), State) -> _</pre>
@@ -49,9 +49,9 @@
 %% @type gen_start_option() = {timeout, non_neg_integer() | infinity | hibernate} |
 %%                            {debug, [trace | log | {logfile, string()} | statistics | debug]}. Generic start options (derived from gen_server)
 %% @type required_option() = {user, string()}
-%%                         | {password, string()}
+%%                         | {password, string()}. Mandatory start options
 %% @type start_option() = required_option()
-%%                      | gen_start_option(). <b>itweep</b> start options (taken from the Twitter Stream API)
+%%                      | gen_start_option(). <b>itweep</b> start options (most of them come from gen_server)
 %% @type start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
@@ -59,9 +59,12 @@
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
 -export_type([gen_start_option/0, start_option/0, start_result/0]).
 
-%% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}
-%% @type handler_result()  = {ok, State::term()} | {stop, Reason::term(), State::term()}
-%% @type call_result()     = {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}
+%% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}.
+%%       The expected result for Mod:init/1
+%% @type handler_result()  = {ok, State::term()} | {stop, Reason::term(), State::term()}.
+%%       The expected result for Mod:handle_status/2, Mod:handle_info/2 and Mod:handle_event/3
+%% @type call_result()     = {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
+%%       The expected result for Mod:handle_call/3
 -type init_result()     :: {ok, State::term()} | ignore | {stop, Reason::term()}.
 -type handler_result()  :: {ok, State::term()} | {stop, Reason::term(), State::term()}.
 -type call_result()     :: {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
@@ -69,9 +72,9 @@
 
 %% @type server() = atom() | pid() | {global, atom()}. Server identification for calls
 %% @type location() = {float(), float(), float(), float()}. Locations like the ones accepted by the Twitter Stream API
-%% @type gen_option() = {count, integer()}. Options for firehose/2, links/2
+%% @type gen_option() = {count, integer()}. Options for {@link firehose/2}, {@link links/2}
 %% @type filter_option() = gen_option() | {follow, [pos_integer()]}
-%%                       | {track, [string()]} | {locations, [location()]}. Options for filter/2
+%%                       | {track, [string()]} | {locations, [location()]}. Options for {@link filter/2}
 -type server() :: atom() | pid() | {global, atom()}.
 -type location() :: {float(), float(), float(), float()}.
 -type gen_option() :: {count, -150000..150000}.
@@ -156,31 +159,31 @@ start_link(Name, Mod, Args, Options) ->
   {User, Password, OtherOptions} = parse_start_options(Options),
   gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
-%%% @doc  Starts using the statuses/filter method to get results
+%%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results
 %%% @spec filter(server(), [filter_option() | ibrowse:option()]) -> ok
 -spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
 filter(Server, Options) ->
   gen_server:cast(Server, {"filter", Options}).
 
-%%% @doc  Starts using the statuses/firehose method to get results
+%%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-firehose">statuses/firehose</a> method to get results
 %%% @spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok
 -spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok.
 firehose(Server, Options) ->
   gen_server:cast(Server, {"firehose", Options}).
 
-%%% @doc  Starts using the statuses/links method to get results
+%%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-links">statuses/links</a> method to get results
 %%% @spec links(server(), [gen_option() | ibrowse:option()]) -> ok
 -spec links(server(), [gen_option() | ibrowse:option()]) -> ok.
 links(Server, Options) ->
   gen_server:cast(Server, {"links", Options}).
 
-%%% @doc  Starts using the statuses/retweet method to get results
+%%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-retweet">statuses/retweet</a> method to get results
 %%% @spec retweet(server(), [ibrowse:option()]) -> ok
 -spec retweet(server(), [ibrowse:option()]) -> ok.
 retweet(Server, Options) ->
   gen_server:cast(Server, {"retweet", Options}).
 
-%%% @doc  Starts using the statuses/sample method to get results
+%%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-sample">statuses/sample</a> method to get results
 %%% @spec sample(server(), [ibrowse:option()]) -> ok
 -spec sample(server(), [ibrowse:option()]) -> ok.
 sample(Server, Options) ->
