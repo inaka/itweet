@@ -28,7 +28,7 @@
 -define(TIMEOUT, 300000). %% 5 min.
 -define(RUNNING, 30000). %% 30 secs.
 
--record(state, {events = []   :: {atom(), itweep_mochijson2:json_object()},
+-record(state, {events = []   :: [{atom(), itweep_mochijson2:json_object()}],
                 statuses = [] :: [itweep_mochijson2:json_object()]}).
 -opaque state() :: #state{}.
 
@@ -40,7 +40,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -spec main() -> no_return().
 main() ->
-  application:load(itweet),
+  _ = application:load(itweet),
   case eunit:test(itweep, [verbose]) of
     ok -> halt(0);
     _ -> halt(1)
@@ -57,9 +57,9 @@ itweep_test_() ->
    _Start = fun() ->
                     {ok, User} = application:get_env(itweet, user),
                     {ok, Pwd}  = application:get_env(itweet, password),
-                    itweep:start_link({local, ?MODULE}, ?MODULE, [],
-                                      [{user,     User},
-                                       {password, Pwd}]),
+                    {ok, _Pid} = itweep:start_link({local, ?MODULE}, ?MODULE, [],
+                                                   [{user,     User},
+                                                    {password, Pwd}]),
                     ok
             end,
    _Stop = fun(_) ->
