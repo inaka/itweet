@@ -5,6 +5,10 @@
 @title Access the Twitter Stream API using ibrowse
 @doc
 == Overview ==
-TODO: Write this
+<b>iTweet</b> defines a behaviour called <b>itweep</b> that represents a
+  <a href="http://www.urbandictionary.com/define.php?term=tweep">tweep</a>, letting users implement
+  it to use the <b>Twitter Stream API</b> with its credentials.
 == Usage ==
-TODO: Write this
+Just implement the functions defined by the <b>itweep</b> behaviour and then call
+<code>itweep:start/3</code>, <code>itweep:start/4</code>, <code>itweep:start_link/3</code> or
+<code>itweep:start_link/4</code> :)
