@@ -1,7 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Fernando Benavides <fernando.benavides@inakanetworks.com>
 %%% @copyright (C) 2011 Inaka Labs SRL
-%%% @doc Tests for itweep module
+%%% @doc Basic callback module for {@link itweep}
 %%%-------------------------------------------------------------------
 
 %% This file is provided to you under the Apache License,
@@ -18,7 +18,7 @@
 %% specific language governing permissions and limitations
 %% under the License.
 
--module(itweep_tests).
+-module(basic_itweep).
 
 -behaviour(itweep).
 

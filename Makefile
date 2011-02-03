@@ -5,9 +5,6 @@ all:
 clean:
 	rebar clean
 
-test: all
-	rebar skip_deps=true eunit
-
 build_plt: all
 	rebar skip_deps=true build-plt
 
@@ -20,5 +17,5 @@ doc: all
 xref: all
 	rebar skip_deps=true xref
 	
-run: all
-	erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse
+test: all
+	if [ -f test.config ]; then erl -config test -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -eval 'case eunit:test(itweep, [verbose]) of ok -> halt(0); _ -> halt(1) end'; else erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -eval 'case eunit:test(itweep, [verbose]) of ok -> halt(0); _ -> halt(1) end'; fi
