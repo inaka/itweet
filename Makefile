@@ -18,4 +18,4 @@ xref: all
 	rebar skip_deps=true xref
 	
 test: all
-	if [ -f test.config ]; then erl -config test -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -eval 'case eunit:test(itweep, [verbose]) of ok -> halt(0); _ -> halt(1) end'; else erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -eval 'case eunit:test(itweep, [verbose]) of ok -> halt(0); _ -> halt(1) end'; fi
+	if [ -f test.config ]; then erl -config test -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -run itweep_tests main; else erl -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -run itweep_tests main; fi

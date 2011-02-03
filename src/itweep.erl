@@ -203,7 +203,7 @@ call(Server, Request) ->
 %%% @spec call(Server::atom() | pid() | {global, atom()}, Request::term(), Timeout::non_neg_integer()|infinity) -> Response::term()
 -spec call(Server::server(), Request::term(), Timeout::non_neg_integer()|infinity) -> Response::term().
 call(Server, Request, Timeout) ->
-  gen_server:call(Server, Request, Timeout).
+  gen_server:call(Server, {call, Request}, Timeout).
 
 %%% @doc Current method.
 %%% Returns the current method and its parameters.
@@ -272,8 +272,7 @@ handle_info({ibrowse_async_headers, ReqId, Code, Headers}, State = #state{req_id
     {stop, Reason, NewModSt} ->
       {stop, Reason, NewState#state{mod_state = NewModSt}}
   end;
-handle_info({ibrowse_async_headers, _OldReqId, Code, Headers}, State) ->
-  error_logger:warning_msg("~p - ~p: old req headers: ~p - ~p~n", [calendar:local_time(), ?MODULE, Code, Headers]),
+handle_info({ibrowse_async_headers, _OldReqId, _Code, _Headers}, State) ->
   {noreply, State};
 %% RESPONSE BODY -----------------------------------------------------------------------------------
 handle_info({ibrowse_async_response, ReqId, {error, req_timedout}}, State = #state{req_id = ReqId}) ->
@@ -328,8 +327,7 @@ handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = 
   {noreply, State#state{buffer = <<Buffer/binary, Body/binary>>}};
 handle_info({ibrowse_async_response, _OldReqId, {error, closing_on_request}}, State) ->
   {noreply, State};
-handle_info({ibrowse_async_response, _OldReqId, Body}, State) ->
-  error_logger:warning_msg("~p - ~p: old req response: ~p~n", [calendar:local_time(), ?MODULE, Body]),
+handle_info({ibrowse_async_response, _OldReqId, _Body}, State) ->
   {noreply, State};
 %% RESPONSE END ------------------------------------------------------------------------------------
 handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = ReqId,
@@ -358,7 +356,6 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
     {stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, _OldReqId}, State) ->
-  error_logger:info_msg("~p - ~p: old req end~n", [calendar:local_time(), ?MODULE]),
   {noreply, State};
 %% OTHERs ------------------------------------------------------------------------------------------
 handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
@@ -441,9 +438,9 @@ run_handler(Fun) ->
   end.
 
 headers_to_json(Code, Headers, Body) ->
-  {{code,     list_to_binary(Code)},
-   {body,     Body},
-   {headers,  lists:map(fun({K,V}) -> {list_to_binary(K), list_to_binary(V)} end, Headers)}}.
+  {[{<<"code">>,     list_to_binary(Code)},
+    {<<"body">>,     Body},
+    {<<"headers">>,  lists:map(fun({K,V}) -> {list_to_binary(K), list_to_binary(V)} end, Headers)}]}.
 
 extract_jsons(Lines) ->
   extract_jsons(Lines, []).
@@ -483,7 +480,7 @@ connect(Url, IOptions, User, Password) ->
       error_logger:error_msg("~p - ~p: Error trying to connect with twitter:~n\t~s: ~s~n", [calendar:local_time(), ?MODULE, Status, Body]),
       {error, {Status, Body}};
     {error, Reason} ->
-      error_logger:error_msg("~p - ~p: ibrowse error trying to connect with twitter:~n\t~s: ~s~n", [calendar:local_time(), ?MODULE, Reason]),
+      error_logger:error_msg("~p - ~p: ibrowse error trying to connect with twitter:~n\t~w~n", [calendar:local_time(), ?MODULE, Reason]),
       {error, Reason}
   catch
     _:{timeout, _} -> %% An ibrowse internal process timed out
