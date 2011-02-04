@@ -43,6 +43,7 @@
 
 -module(itweep).
 -author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
+-vsn("1.0").
 
 -behaviour(gen_server).
 
@@ -470,7 +471,6 @@ extract_jsons([Next | Rest], Acc) ->
   extract_jsons(Rest, [Json | Acc]).
 
 connect(Url, IOptions, User, Password) ->
-  error_logger:info_msg("~p: Connecting to ~s...~n", [?MODULE, Url]),
   try ibrowse:send_req(Url, [], get, [], [{basic_auth, {User, Password}},
                                           {stream_to, {self(), once}},
                                           {response_format, binary} | IOptions], infinity) of

@@ -1,7 +1,7 @@
 {application, itweet,
  [
   {description, "Access the Twitter Stream API using ibrowse"},
-  {vsn, "0.1"},
+  {vsn, "1.0"},
   {registered, []},
   {applications, [
                   kernel,

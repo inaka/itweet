@@ -1,6 +1,6 @@
 ** this is the overview.doc file for the application 'itweet' **
 @author Fernando Benavides <fernando.benavides@inakanetworks.com>
-@version 0.1
+@version 1.0
 @reference Check the <a href="http://dev.twitter.com/pages/streaming_api">Twitter Stream API</a>
 @title Access the Twitter Stream API using ibrowse
 @doc
