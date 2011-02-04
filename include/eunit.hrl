@@ -47,6 +47,18 @@
                                       {list, __V}]})
              end
     end)(Member, List))).
+-define(assertBinMatch(Text, Patterns),
+  ((fun (__X, __V) ->
+              case binary:match(__X, __V) of
+                nomatch -> .erlang:error({assertBinMatch_failed,
+                                         [{module, ?MODULE},
+                                          {line, ?LINE},
+                                          {expression, ("binary:match(" ??Text " , " ??Patterns ")")},
+                                          {text, __X},
+                                          {patterns, __V}]});
+                _ -> ok
+             end
+    end)(Text, Patterns))).
 -define(fail(Msg),
         .erlang:error({failed,
                        [{module, ?MODULE},
