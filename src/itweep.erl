@@ -92,7 +92,7 @@
 -export([behaviour_info/1]).
 %% API
 -export([start/3, start/4, start_link/3, start_link/4, call/2, call/3]).
--export([filter/2, firehose/2, retweet/2, links/2, sample/2]).
+-export([filter/2, firehose/2, retweet/2, links/2, sample/2, rest/1]).
 -export([current_method/1]).
 %% GEN SERVER
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -190,6 +190,12 @@ retweet(Server, Options) ->
 sample(Server, Options) ->
   gen_server:cast(Server, {"sample", Options}).
 
+%%% @doc  Put the server to rest (i.e. not querying twitter)
+%%% @spec rest(server()) -> ok
+-spec rest(server()) -> ok.
+rest(Server) ->
+  gen_server:cast(Server, rest).
+
 %%% @doc Make a call to a generic server.
 %%% If the server is located at another node, that node will be monitored.
 %%% If the client is trapping exits and is linked server termination is handled here
@@ -244,7 +250,7 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
   end.
 
 %% @hidden
--spec handle_cast({string(), [filter_option() | gen_option() | ibrowse:option()]}, #state{}) -> {noreply, #state{}}.
+-spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, #state{}) -> {noreply, #state{}}.
 handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
@@ -254,7 +260,10 @@ handle_cast(M = {Method, Options}, State = #state{user = User, password = Passwo
       {noreply, State#state{req_id = ReqId, method = M}};
     {error, Reason} ->
       {stop, {error, Reason}, State}
-  end.
+  end;
+handle_cast(rest, State = #state{req_id = OldReqId}) ->
+  stream_close(OldReqId),
+  {noreply, State#state{req_id = undefined, method = none}}.
 
 %% @hidden
 %% RESPONSE HEADERS --------------------------------------------------------------------------------
