@@ -54,21 +54,23 @@
 %% @type start_option() = required_option()
 %%                      | gen_start_option(). <b>itweep</b> start options (most of them come from gen_server)
 %% @type start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}
+%% @type method() = rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}. What's the server doing?
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
 -type start_option() :: {user, string()} | {password, string()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
--export_type([gen_start_option/0, start_option/0, start_result/0]).
+-type method() :: rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
+-export_type([gen_start_option/0, start_option/0, start_result/0, method/0]).
 
 %% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}.
 %%       The expected result for Mod:init/1
 %% @type handler_result()  = {ok, State::term()} | {stop, Reason::term(), State::term()}.
 %%       The expected result for Mod:handle_status/2, Mod:handle_info/2 and Mod:handle_event/3
-%% @type call_result()     = {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
+%% @type call_result()     = {ok, Reply::term(), State::term()} | {ok, NewMethod::method(), Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
 %%       The expected result for Mod:handle_call/3
 -type init_result()     :: {ok, State::term()} | ignore | {stop, Reason::term()}.
 -type handler_result()  :: {ok, State::term()} | {stop, Reason::term(), State::term()}.
--type call_result()     :: {ok, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
+-type call_result()     :: {ok, Reply::term(), State::term()} | {ok, NewMethod::method(), Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
 -export_type([init_result/0, handler_result/0, call_result/0]).
 
 %% @type server() = atom() | pid() | {global, atom()}. Server identification for calls
@@ -108,7 +110,7 @@
                 buffer      :: binary(),
                 http_status :: string(),
                 http_headers:: [{string(), string()}],
-                method= none:: none | {string(), [filter_option() | gen_option() | ibrowse:option()]} 
+                method= rest:: method()
                }).
 -opaque state() :: #state{}.
 
@@ -214,8 +216,8 @@ call(Server, Request, Timeout) ->
 
 %%% @doc Current method.
 %%% Returns the current method and its parameters.
-%%% @spec current_method(Server::atom() | pid() | {global, atom()}) -> none | {string(), [filter_option() | gen_option() | ibrowse:option()]}
--spec current_method(Server::atom() | pid() | {global, atom()}) -> none | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
+%%% @spec current_method(Server::atom() | pid() | {global, atom()}) -> method()
+-spec current_method(Server::atom() | pid() | {global, atom()}) -> method().
 current_method(Server) ->
   gen_server:call(Server, current_method).
 
@@ -243,9 +245,15 @@ handle_call(current_method, _From, State = #state{method = Method}) ->
 handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModState}) ->
   try Mod:handle_call(Request, From, ModState) of
     {ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
+    {ok, NewMethod, Reply, NewModSt} ->
+      {noreply, NewState} = handle_cast(NewMethod, State#state{mod_state = NewModSt}),
+      {reply, Reply, NewState};
     {stop, Reason, Reply, NewModSt} -> {stop, Reason, Reply, State#state{mod_state = NewModSt}}
   catch
     _:{ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
+    _:{ok, NewMethod, Reply, NewModSt} ->
+      {noreply, NewState} = handle_cast(NewMethod, State#state{mod_state = NewModSt}),
+      {reply, Reply, NewState};
     _:{stop, Reason, Reply, NewModSt} -> {stop, Reason, Reply, State#state{mod_state = NewModSt}}    
   end.
 
@@ -263,7 +271,7 @@ handle_cast(M = {Method, Options}, State = #state{user = User, password = Passwo
   end;
 handle_cast(rest, State = #state{req_id = OldReqId}) ->
   stream_close(OldReqId),
-  {noreply, State#state{req_id = undefined, method = none}}.
+  {noreply, State#state{req_id = undefined, method = rest}}.
 
 %% @hidden
 %% RESPONSE HEADERS --------------------------------------------------------------------------------
