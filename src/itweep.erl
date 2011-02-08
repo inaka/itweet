@@ -423,8 +423,8 @@ build_url([{follow, V} | Rest], Sep, Url, Ops) ->
   build_url(Rest, $&, [Url, Sep, "follow=", Users], Ops);
 build_url([{track, V} | Rest], Sep, Url, Ops) ->
   Terms =
-    lists:foldl(fun(Term, []) -> Term;
-                   (Term, Acc) -> Acc ++ [$, | Term]
+    lists:foldl(fun(Term, []) -> ibrowse_lib:url_encode(Term);
+                   (Term, Acc) -> Acc ++ [$, | ibrowse_lib:url_encode(Term)]
                 end, [], V),
   build_url(Rest, $&, [Url , Sep, "track=", Terms], Ops);
 build_url([{locations, V} | Rest], Sep, Url, Ops) ->
