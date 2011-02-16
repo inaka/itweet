@@ -226,7 +226,7 @@ current_method(Server) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @hidden
--spec init({atom(), term(), string(), string()}) -> {ok, #state{}} | ignore | {stop, term()}.
+-spec init({atom(), term(), string(), string()}) -> {ok, state()} | ignore | {stop, term()}.
 init({Mod, InitArgs, User, Password}) ->
   case Mod:init(InitArgs) of
     {ok, ModState} ->
@@ -258,7 +258,7 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
   end.
 
 %% @hidden
--spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, #state{}) -> {noreply, #state{}}.
+-spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()}.
 handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
@@ -372,8 +372,9 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
          end) of
     {ok, NewModSt} ->
       ok = ibrowse:stream_next(ReqId),
-      {noreply, State#state{mod_state = NewModSt}};
-    {stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
+      {stop, normal, State#state{mod_state = NewModSt, req_id = undefined}};
+    {stop, Reason, NewModSt} ->
+      {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, _OldReqId}, State) ->
   {noreply, State};
@@ -385,7 +386,7 @@ handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
   end.
 
 %% @hidden
--spec terminate(any(), #state{}) -> any().
+-spec terminate(any(), state()) -> any().
 terminate(Reason, #state{module = Mod, mod_state = ModState, req_id = ReqId}) ->
   stream_close(ReqId),
   Mod:terminate(Reason, ModState).
