@@ -357,6 +357,7 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
       error_logger:info_msg("~p - ~p: Stream ended.  There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
       {stop, normal, State#state{mod_state = NewModSt, req_id = undefined}};
     {stop, Reason, NewModSt} ->
+      error_logger:error_msg("~p - ~p: Stream ended.  There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
       {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = ReqId,
