@@ -151,7 +151,7 @@ handle_event(Event, Data, State = #state{events = Events}) ->
   {ok, State#state{events = [{Event, Data}|Events]}}.
 
 %% @hidden
--spec handle_call(Msg::term(), From::reference(), State::term()) -> itweep:call_result().
+-spec handle_call(Msg::term(), From::reference(), State::term()) -> {ok, ok | {[itweep_mochijson2:json_object()], [itweep_mochijson2:json_object()]}, state()} | {stop, normal, ok, state()}.
 handle_call(get, _From, State = #state{statuses = Statuses,
                                        events   = Events}) ->
   {ok, {lists:reverse(Events), lists:reverse(Statuses)}, State};
