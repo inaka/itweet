@@ -354,6 +354,7 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
                                                                 mod_state   = ModState}) ->
   case run_handler(fun() -> Mod:handle_event(stream_end, null, ModState) end) of
     {ok, NewModSt} ->
+      error_logger:info_msg("~p - ~p: Stream ended.  There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
       {stop, normal, State#state{mod_state = NewModSt, req_id = undefined}};
     {stop, Reason, NewModSt} ->
       {stop, Reason, State#state{mod_state = NewModSt}}
