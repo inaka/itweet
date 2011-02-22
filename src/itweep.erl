@@ -246,8 +246,12 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
   try Mod:handle_call(Request, From, ModState) of
     {ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
     {ok, NewMethod, Reply, NewModSt} ->
-      {noreply, NewState} = handle_cast(NewMethod, State#state{mod_state = NewModSt}),
-      {reply, Reply, NewState};
+      case handle_cast(NewMethod, State#state{mod_state = NewModSt}) of
+        {noreply, NewState} ->
+          {reply, Reply, NewState};
+        {stop, Reason, NewState} ->
+          {stop, Reason, Reply, NewState}
+      end;
     {stop, Reason, Reply, NewModSt} -> {stop, Reason, Reply, State#state{mod_state = NewModSt}}
   catch
     _:{ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
@@ -258,7 +262,7 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
   end.
 
 %% @hidden
--spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()}.
+-spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
