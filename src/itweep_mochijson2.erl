@@ -59,13 +59,6 @@
 -define(IS_WHITESPACE(C),
         (C =:= $\s orelse C =:= $\t orelse C =:= $\r orelse C =:= $\n)).
 
-%% @type json_string() = atom() | binary(). JSON Strings
-%% @type json_number() = integer() | float(). JSON Numbers
-%% @type json_array()  = [json_term()]. JSON Arrays
-%% @type json_object() = {[{json_string(), json_term()}]}. JSON Objects
-%% @type json_boolean()= boolean(). JSON Booleans
-%% @type json_null()   = null. JSON Null object
-%% @type json_term()   = json_string() | json_number() | json_array() | json_object() | json_null() | json_boolean(). JSON Terms
 -type json_string() :: atom() | binary().
 -type json_number() :: integer() | float().
 -type json_array()  :: [json_term()].
@@ -79,9 +72,6 @@
 -type encoder_option() :: term() | {utf8, boolean()}.
 -type decoder_option() :: term().
 
-%% @type encoder_option() = {handler, handler()} | {utf8, boolean()}.
-%% @type decoder_option() = {object_hook, hook()}.
-
 -record(encoder, {handler = null  :: null | fun((term()) -> term()),
                   utf8    = true  :: boolean()}).
 
@@ -91,27 +81,23 @@
                   column      = 1     :: pos_integer(),
                   state       = null  :: null | trim | any | key | comma}).
 
-%% @spec encoder([encoder_option()]) -> function()
 %% @doc Create an encoder/1 with the given options.
 -spec encoder([encoder_option()]) -> fun((term()) -> iolist()).
 encoder(Options) ->
     State = parse_encoder_options(Options, #encoder{}),
     fun (O) -> json_encode(O, State) end.
 
-%% @spec encode(json_term()) -> iolist()
 %% @doc Encode the given as JSON to an iolist.
 -spec encode(json_term()) -> iolist().
 encode(Any) ->
     json_encode(Any, #encoder{}).
 
-%% @spec decoder([decoder_option()]) -> function()
 %% @doc Create a decoder/1 with the given options.
 -spec decoder([decoder_option()]) -> fun((iolist()) -> json_term()).
 decoder(Options) ->
     State = parse_decoder_options(Options, #decoder{}),
     fun (O) -> json_decode(O, State) end.
 
-%% @spec decode(iolist()) -> json_term()
 %% @doc Decode the given iolist to Erlang terms.
 -spec decode(iodata()) -> json_term().
 decode(S) ->
@@ -120,16 +106,12 @@ decode(S) ->
         _:Err -> throw({invalid_json, S, Err})
     end.
 
-%% @spec get_value(Key::key_val(), JsonObj::json_object()) -> term()
-%% @type key_val() = list() | binary()
 %% @doc Returns the value of a simple key/value property in json object.
 %% @equiv get_value(Key, JsonObj, undefined)
 -spec get_value(Key::list() | binary(), JsonObj::json_object()) -> term().
 get_value(Key, JsonObj) ->
     get_value(Key, JsonObj, undefined).
 
-%% @spec get_value(Key::key_val(), JsonObj::json_object(), Default::term()) -> term()
-%% @type key_val() = list() | binary()
 %% @doc Returns the value of a simple key/value property in json object
 %% function from erlang_couchdb
 -spec get_value(Key::list() | binary(), JsonObj::json_object(), Default::term()) -> term().

@@ -47,14 +47,6 @@
 
 -behaviour(gen_server).
 
-%% @type gen_start_option() = {timeout, non_neg_integer() | infinity | hibernate} |
-%%                            {debug, [trace | log | {logfile, string()} | statistics | debug]}. Generic start options (derived from gen_server)
-%% @type required_option() = {user, string()}
-%%                         | {password, string()}. Mandatory start options
-%% @type start_option() = required_option()
-%%                      | gen_start_option(). <b>itweep</b> start options (most of them come from gen_server)
-%% @type start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}
-%% @type method() = rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}. What's the server doing?
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
 -type start_option() :: {user, string()} | {password, string()} | gen_start_option().
@@ -62,22 +54,11 @@
 -type method() :: rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
 -export_type([gen_start_option/0, start_option/0, start_result/0, method/0]).
 
-%% @type init_result()     = {ok, State::term()} | ignore | {stop, Reason::term()}.
-%%       The expected result for Mod:init/1
-%% @type handler_result()  = {ok, State::term()} | {stop, Reason::term(), State::term()}.
-%%       The expected result for Mod:handle_status/2, Mod:handle_info/2 and Mod:handle_event/3
-%% @type call_result()     = {ok, Reply::term(), State::term()} | {ok, NewMethod::method(), Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
-%%       The expected result for Mod:handle_call/3
 -type init_result()     :: {ok, State::term()} | ignore | {stop, Reason::term()}.
 -type handler_result()  :: {ok, State::term()} | {stop, Reason::term(), State::term()}.
 -type call_result()     :: {ok, Reply::term(), State::term()} | {ok, NewMethod::method(), Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}.
 -export_type([init_result/0, handler_result/0, call_result/0]).
 
-%% @type server() = atom() | pid() | {global, atom()}. Server identification for calls
-%% @type location() = {float(), float(), float(), float()}. Locations like the ones accepted by the Twitter Stream API
-%% @type gen_option() = {count, integer()}. Options for {@link firehose/2}, {@link links/2}
-%% @type filter_option() = gen_option() | {follow, [pos_integer()]}
-%%                       | {track, [string()]} | {locations, [location()]}. Options for {@link filter/2}
 -type server() :: atom() | pid() | {global, atom()}.
 -type location() :: {float(), float(), float(), float()}.
 -type gen_option() :: {count, -150000..150000}.
@@ -131,69 +112,55 @@ behaviour_info(_Other) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% @doc  Starts a generic server.
-%%% @spec start(Mod::atom(), Args::term(), Options::[start_option()]) ->
-%%%         {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
   {User, Password, OtherOptions} = parse_start_options(Options),
   gen_server:start(?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
-%%% @spec start(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) ->
-%%%         {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
   {User, Password, OtherOptions} = parse_start_options(Options),
   gen_server:start(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
-%%% @spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) ->
-%%%         {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
   {User, Password, OtherOptions} = parse_start_options(Options),
   gen_server:start_link(?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
-%%% @spec start_link(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) ->
-%%%         {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
   {User, Password, OtherOptions} = parse_start_options(Options),
   gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results
-%%% @spec filter(server(), [filter_option() | ibrowse:option()]) -> ok
 -spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
 filter(Server, Options) ->
   gen_server:cast(Server, {"filter", Options}).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-firehose">statuses/firehose</a> method to get results
-%%% @spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok
 -spec firehose(server(), [gen_option() | ibrowse:option()]) -> ok.
 firehose(Server, Options) ->
   gen_server:cast(Server, {"firehose", Options}).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-links">statuses/links</a> method to get results
-%%% @spec links(server(), [gen_option() | ibrowse:option()]) -> ok
 -spec links(server(), [gen_option() | ibrowse:option()]) -> ok.
 links(Server, Options) ->
   gen_server:cast(Server, {"links", Options}).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-retweet">statuses/retweet</a> method to get results
-%%% @spec retweet(server(), [ibrowse:option()]) -> ok
 -spec retweet(server(), [ibrowse:option()]) -> ok.
 retweet(Server, Options) ->
   gen_server:cast(Server, {"retweet", Options}).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-sample">statuses/sample</a> method to get results
-%%% @spec sample(server(), [ibrowse:option()]) -> ok
 -spec sample(server(), [ibrowse:option()]) -> ok.
 sample(Server, Options) ->
   gen_server:cast(Server, {"sample", Options}).
 
 %%% @doc  Put the server to rest (i.e. not querying twitter)
-%%% @spec rest(server()) -> ok
 -spec rest(server()) -> ok.
 rest(Server) ->
   gen_server:cast(Server, rest).
@@ -201,7 +168,6 @@ rest(Server) ->
 %%% @doc Make a call to a generic server.
 %%% If the server is located at another node, that node will be monitored.
 %%% If the client is trapping exits and is linked server termination is handled here
-%%% @spec call(Server::atom() | pid() | {global, atom()}, Request::term()) -> Response::term()
 -spec call(Server::server(), Request::term()) -> Response::term().
 call(Server, Request) ->
   gen_server:call(Server, {call, Request}).
@@ -209,14 +175,12 @@ call(Server, Request) ->
 %%% @doc Make a call to a generic server.
 %%% If the server is located at another node, that node will be monitored.
 %%% If the client is trapping exits and is linked server termination is handled here
-%%% @spec call(Server::atom() | pid() | {global, atom()}, Request::term(), Timeout::non_neg_integer()|infinity) -> Response::term()
 -spec call(Server::server(), Request::term(), Timeout::non_neg_integer()|infinity) -> Response::term().
 call(Server, Request, Timeout) ->
   gen_server:call(Server, {call, Request}, Timeout).
 
 %%% @doc Current method.
 %%% Returns the current method and its parameters.
-%%% @spec current_method(Server::atom() | pid() | {global, atom()}) -> method()
 -spec current_method(Server::atom() | pid() | {global, atom()}) -> method().
 current_method(Server) ->
   gen_server:call(Server, current_method).
