@@ -42,47 +42,43 @@
 
 <h3 class="typedecl"><a name="type-call_result">call_result()</a></h3>
 <p><tt>call_result() = {ok, Reply::term(), State::term()} | {ok, NewMethod::<a href="#type-method">method()</a>, Reply::term(), State::term()} | {stop, Reason::term(), Reply::term(), State::term()}</tt></p>
-<p>The expected result for Mod:handle_call/3</p>
+
 
 <h3 class="typedecl"><a name="type-filter_option">filter_option()</a></h3>
-<p><tt>filter_option() = <a href="#type-gen_option">gen_option()</a> | {follow, [<a href="#type-pos_integer">pos_integer()</a>]} | {track, [string()]} | {locations, [<a href="#type-location">location()</a>]}</tt></p>
-<p>Options for <a href="#filter-2"><code>filter/2</code></a></p>
+<p><tt>filter_option() = <a href="#type-gen_option">gen_option()</a> | {follow, [pos_integer()]} | {track, [string()]} | {locations, [<a href="#type-location">location()</a>]}</tt></p>
+
 
 <h3 class="typedecl"><a name="type-gen_option">gen_option()</a></h3>
-<p><tt>gen_option() = {count, integer()}</tt></p>
-<p>Options for <a href="#firehose-2"><code>firehose/2</code></a>, <a href="#links-2"><code>links/2</code></a></p>
+<p><tt>gen_option() = {count, -150000..150000}</tt></p>
+
 
 <h3 class="typedecl"><a name="type-gen_start_option">gen_start_option()</a></h3>
-<p><tt>gen_start_option() = {timeout, <a href="#type-non_neg_integer">non_neg_integer()</a> | infinity | hibernate} | {debug, [trace | log | {logfile, string()} | statistics | debug]}</tt></p>
-<p>Generic start options (derived from gen_server)</p>
+<p><tt>gen_start_option() = {timeout, non_neg_integer() | infinity | hibernate} | {debug, [trace | log | {logfile, string()} | statistics | debug]}</tt></p>
+
 
 <h3 class="typedecl"><a name="type-handler_result">handler_result()</a></h3>
 <p><tt>handler_result() = {ok, State::term()} | {stop, Reason::term(), State::term()}</tt></p>
-<p>The expected result for Mod:handle_status/2, Mod:handle_info/2 and Mod:handle_event/3</p>
+
 
 <h3 class="typedecl"><a name="type-init_result">init_result()</a></h3>
 <p><tt>init_result() = {ok, State::term()} | ignore | {stop, Reason::term()}</tt></p>
-<p>The expected result for Mod:init/1</p>
+
 
 <h3 class="typedecl"><a name="type-location">location()</a></h3>
 <p><tt>location() = {float(), float(), float(), float()}</tt></p>
-<p>Locations like the ones accepted by the Twitter Stream API</p>
+
 
 <h3 class="typedecl"><a name="type-method">method()</a></h3>
 <p><tt>method() = rest | {string(), [<a href="#type-filter_option">filter_option()</a> | <a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]}</tt></p>
-<p>What's the server doing?</p>
 
-<h3 class="typedecl"><a name="type-required_option">required_option()</a></h3>
-<p><tt>required_option() = {user, string()} | {password, string()}</tt></p>
-<p>Mandatory start options</p>
 
 <h3 class="typedecl"><a name="type-server">server()</a></h3>
 <p><tt>server() = atom() | pid() | {global, atom()}</tt></p>
-<p>Server identification for calls</p>
+
 
 <h3 class="typedecl"><a name="type-start_option">start_option()</a></h3>
-<p><tt>start_option() = <a href="#type-required_option">required_option()</a> | <a href="#type-gen_start_option">gen_start_option()</a></tt></p>
-<p><b>itweep</b> start options (most of them come from gen_server)</p>
+<p><tt>start_option() = {user, string()} | {password, string()} | <a href="#type-gen_start_option">gen_start_option()</a></tt></p>
+
 
 <h3 class="typedecl"><a name="type-start_result">start_result()</a></h3>
 <p><tt>start_result() = {ok, pid()} | {error, {already_started, pid()}} | {error, term()}</tt></p>
@@ -108,76 +104,76 @@
 
 <h3 class="function"><a name="call-2">call/2</a></h3>
 <div class="spec">
-<p><tt>call(Server::atom() | pid() | {global, atom()}, Request::term()) -&gt; Response::term()</tt></p>
+<p><tt>call(Server::<a href="#type-server">server()</a>, Request::term()) -&gt; Response::term()</tt><br></p>
 </div><p>Make a call to a generic server.
    If the server is located at another node, that node will be monitored.
    If the client is trapping exits and is linked server termination is handled here</p>
 
 <h3 class="function"><a name="call-3">call/3</a></h3>
 <div class="spec">
-<p><tt>call(Server::atom() | pid() | {global, atom()}, Request::term(), Timeout::<a href="#type-non_neg_integer">non_neg_integer()</a> | infinity) -&gt; Response::term()</tt></p>
+<p><tt>call(Server::<a href="#type-server">server()</a>, Request::term(), Timeout::non_neg_integer() | infinity) -&gt; Response::term()</tt><br></p>
 </div><p>Make a call to a generic server.
    If the server is located at another node, that node will be monitored.
    If the client is trapping exits and is linked server termination is handled here</p>
 
 <h3 class="function"><a name="current_method-1">current_method/1</a></h3>
 <div class="spec">
-<p><tt>current_method(Server::atom() | pid() | {global, atom()}) -&gt; <a href="#type-method">method()</a></tt></p>
+<p><tt>current_method(Server::atom() | pid() | {global, atom()}) -&gt; <a href="#type-method">method()</a></tt><br></p>
 </div><p>Current method.
    Returns the current method and its parameters.</p>
 
 <h3 class="function"><a name="filter-2">filter/2</a></h3>
 <div class="spec">
-<p><tt>filter(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-filter_option">filter_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
+<p><tt>filter(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-filter_option">filter_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt><br></p>
 </div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results</p>
 
 <h3 class="function"><a name="firehose-2">firehose/2</a></h3>
 <div class="spec">
-<p><tt>firehose(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
+<p><tt>firehose(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt><br></p>
 </div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-firehose">statuses/firehose</a> method to get results</p>
 
 <h3 class="function"><a name="links-2">links/2</a></h3>
 <div class="spec">
-<p><tt>links(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
+<p><tt>links(Server::<a href="#type-server">server()</a>, Options::[<a href="#type-gen_option">gen_option()</a> | <a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt><br></p>
 </div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-links">statuses/links</a> method to get results</p>
 
 <h3 class="function"><a name="rest-1">rest/1</a></h3>
 <div class="spec">
-<p><tt>rest(Server::<a href="#type-server">server()</a>) -&gt; ok</tt></p>
+<p><tt>rest(Server::<a href="#type-server">server()</a>) -&gt; ok</tt><br></p>
 </div><p> Put the server to rest (i.e. not querying twitter)</p>
 
 <h3 class="function"><a name="retweet-2">retweet/2</a></h3>
 <div class="spec">
-<p><tt>retweet(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
+<p><tt>retweet(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt><br></p>
 </div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-retweet">statuses/retweet</a> method to get results</p>
 
 <h3 class="function"><a name="sample-2">sample/2</a></h3>
 <div class="spec">
-<p><tt>sample(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt></p>
+<p><tt>sample(Server::<a href="#type-server">server()</a>, Options::[<a href="ibrowse.html#type-option">ibrowse:option()</a>]) -&gt; ok</tt><br></p>
 </div><p> Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-sample">statuses/sample</a> method to get results</p>
 
 <h3 class="function"><a name="start-3">start/3</a></h3>
 <div class="spec">
-<p><tt>start(Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}</tt></p>
+<p><tt>start(Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; <a href="#type-start_result">start_result()</a></tt><br></p>
 </div><p> Starts a generic server.</p>
 
 <h3 class="function"><a name="start-4">start/4</a></h3>
 <div class="spec">
-<p><tt>start(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}</tt></p>
+<p><tt>start(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; <a href="#type-start_result">start_result()</a></tt><br></p>
 </div><p> Starts a named generic server.</p>
 
 <h3 class="function"><a name="start_link-3">start_link/3</a></h3>
 <div class="spec">
-<p><tt>start_link(Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}</tt></p>
+<p><tt>start_link(Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; <a href="#type-start_result">start_result()</a></tt><br></p>
 </div><p> Starts and links a generic server.</p>
 
 <h3 class="function"><a name="start_link-4">start_link/4</a></h3>
 <div class="spec">
-<p><tt>start_link(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; {ok, pid()} | {error, {already_started, pid()}} | {error, Reason::term()}</tt></p>
+<p><tt>start_link(Name::{local | global, atom()}, Mod::atom(), Args::term(), Options::[<a href="#type-start_option">start_option()</a>]) -&gt; <a href="#type-start_result">start_result()</a></tt><br></p>
 </div><p> Starts and links a named generic server.</p>
 <hr>
 
 <div class="navbar"><a name="#navbar_bottom"></a><table width="100%" border="0" cellspacing="0" cellpadding="2" summary="navigation bar"><tr><td><a href="overview-summary.html" target="overviewFrame">Overview</a></td><td><a href="http://www.erlang.org/"><img src="erlang.png" align="right" border="0" alt="erlang logo"></a></td></tr></table></div>
-<p><i>Generated by EDoc, Feb 7 2011, 10:50:21.</i></p>
+<p><i>Generated by EDoc, Mar 21 2011, 13:13:22.</i></p>
 </body>
 </html>
