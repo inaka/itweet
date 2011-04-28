@@ -49,20 +49,20 @@ init([]) ->
   {ok, #state{}}.
 
 %% @hidden
--spec handle_status(Status::itweep_mochijson2:json_object(), State::term()) -> {stop, normal, state()}.
+-spec handle_status(Status::itweet_mochijson2:json_object(), State::term()) -> {stop, normal, state()}.
 handle_status(Status, State) ->
 %% handle_status(Status, State) ->
-%%   User = case itweep_mochijson2:get_value("user", Status) of
+%%   User = case itweet_mochijson2:get_value("user", Status) of
 %%            undefined -> "An annonymous user";
-%%            JsonObj -> itweep_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
+%%            JsonObj -> itweet_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
 %%          end,
-%%   Text = itweep_mochijson2:get_value("text", Status, "nothing (o_O)"),  
+%%   Text = itweet_mochijson2:get_value("text", Status, "nothing (o_O)"),  
 %%   io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
   io:format("~p~n", [Status]),
   {stop, normal, State}.
 
 %% @hidden
--spec handle_event(Event::atom(), Data::itweep_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_event(Event::atom(), Data::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
 handle_event(Event, Data, State) ->
   io:format("~p - ~p:~p -> ~p: ~p~n", [calendar:local_time(), ?MODULE, ?LINE, Event, Data]),
   {ok, State}.

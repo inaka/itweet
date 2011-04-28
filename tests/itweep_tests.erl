@@ -28,8 +28,8 @@
 -define(TIMEOUT, 300000). %% 5 min.
 -define(RUNNING, 10000). %% 10 secs.
 
--record(state, {events = []   :: [{atom(), itweep_mochijson2:json_object()}],
-                statuses = [] :: [itweep_mochijson2:json_object()]}).
+-record(state, {events = []   :: [{atom(), itweet_mochijson2:json_object()}],
+                statuses = [] :: [itweet_mochijson2:json_object()]}).
 -opaque state() :: #state{}.
 
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).
@@ -135,7 +135,7 @@ init([]) ->
   {ok, #state{}}.
 
 %% @hidden
--spec handle_status(Status::itweep_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_status(Status::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
 handle_status(Status, State = #state{statuses = Statuses}) ->
 %  case length(Statuses) of
 %    L when L rem 100 =:= 0 ->
@@ -146,12 +146,12 @@ handle_status(Status, State = #state{statuses = Statuses}) ->
   {ok, State#state{statuses = [Status|Statuses]}}.
 
 %% @hidden
--spec handle_event(Event::atom(), Data::itweep_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_event(Event::atom(), Data::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
 handle_event(Event, Data, State = #state{events = Events}) ->
   {ok, State#state{events = [{Event, Data}|Events]}}.
 
 %% @hidden
--spec handle_call(Msg::term(), From::reference(), State::term()) -> {ok, ok | {[itweep_mochijson2:json_object()], [itweep_mochijson2:json_object()]}, state()} | {stop, normal, ok, state()}.
+-spec handle_call(Msg::term(), From::reference(), State::term()) -> {ok, ok | {[itweet_mochijson2:json_object()], [itweet_mochijson2:json_object()]}, state()} | {stop, normal, ok, state()}.
 handle_call(get, _From, State = #state{statuses = Statuses,
                                        events   = Events}) ->
   {ok, {lists:reverse(Events), lists:reverse(Statuses)}, State};
@@ -185,7 +185,7 @@ get_results() ->
       ?debugFmt("~p messages\n", [erlang:length(Statuses)]),
       Statuses;
     {stream_error, ErrorJson} ->
-      case itweep_mochijson2:get_value("code", ErrorJson, null) of
+      case itweet_mochijson2:get_value("code", ErrorJson, null) of
         <<"403">> ->
           unauthorized;
         <<"413">> ->
@@ -203,14 +203,14 @@ option(track) -> {track, ["omg", "lol", "yfrog", "twitpic"]};
 option(locations) -> {locations, [{-38.0, -65.0, -33.0, -56.0}, {-122.75, 36.8, -121.75, 37.8}]}.
 
 validate({follow, Users}, Status) ->
-  case itweep_mochijson2:get_value(<<"user">>, Status) of
+  case itweet_mochijson2:get_value(<<"user">>, Status) of
     undefined ->
       ?debugFmt("Status without user: ~p", [Status]);
     UserJson ->
-      ?assertMember(itweep_mochijson2:get_value(<<"id">>, UserJson, -1), Users)
+      ?assertMember(itweet_mochijson2:get_value(<<"id">>, UserJson, -1), Users)
   end;
 validate({track, Words}, Status) ->
-  Text = to_lower(list_to_binary(itweep_mochijson2:encode(Status))),
+  Text = to_lower(list_to_binary(itweet_mochijson2:encode(Status))),
   case binary:match(Text, lists:map(fun erlang:list_to_binary/1, Words)) of
     nomatch ->
       ?debugFmt("~p\n\n~p\n\n", [Status, Text]),
@@ -219,11 +219,11 @@ validate({track, Words}, Status) ->
       ok
   end;
 validate({locations, Locations}, Status) ->
-  case itweep_mochijson2:get_value(<<"geo">>, Status, null) of
+  case itweet_mochijson2:get_value(<<"geo">>, Status, null) of
     null ->
       ok;
     GeoJson ->
-      case itweep_mochijson2:get_value(<<"coordinates">>, GeoJson) of
+      case itweet_mochijson2:get_value(<<"coordinates">>, GeoJson) of
         [Long, Lat] ->
           case lists:any(fun({MinLat, MinLong, MaxLat, MaxLong}) ->
                                  MinLat =< Lat andalso Lat =< MaxLat andalso

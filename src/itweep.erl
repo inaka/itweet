@@ -9,10 +9,10 @@
 %%%   <pre>init(Args::term()) -> {@link init_result()}</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::{@link itweep_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>  
+%%%   <pre>handle_status(Status::{@link itweet_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>  
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_event(Event::atom(), Data::{@link itweep_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>
+%%%   <pre>handle_event(Event::atom(), Data::{@link itweet_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an event is received from twitter<br/>
 %%%   </li><li>
 %%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> {@link call_result()}</pre>
@@ -443,7 +443,7 @@ extract_jsons([NewBuffer], Acc) ->
   %%          characters (\n) may occur in object elements (the text element of a status object, for
   %%          example), but carriage returns (\r) should not.
   %%      ...sometimes they just don't send the \r after the last object
-  try itweep_mochijson2:decode(NewBuffer) of
+  try itweet_mochijson2:decode(NewBuffer) of
     Json ->
       {lists:reverse([Json|Acc]), <<>>}
   catch
@@ -455,7 +455,7 @@ extract_jsons([<<>> | Rest], Acc) ->
 extract_jsons([<<$\n>> | Rest], Acc) ->
   extract_jsons(Rest, Acc);
 extract_jsons([Next | Rest], Acc) ->
-  Json = itweep_mochijson2:decode(Next),
+  Json = itweet_mochijson2:decode(Next),
   extract_jsons(Rest, [Json | Acc]).
 
 connect(Url, IOptions, User, Password) ->
