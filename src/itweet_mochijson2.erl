@@ -35,7 +35,7 @@
 -author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
 -export([encoder/1, encode/1]).
 -export([decoder/1, decode/1]).
--export([get_value/2, get_value/3]).
+-export([get_value/2, get_value/3, set_value/3]).
 
 % This is a macro to placate syntax highlighters..
 -define(Q, $\").
@@ -121,6 +121,12 @@ get_value(Key, JsonObj, Default) when is_binary(Key) ->
     {Props} = JsonObj,
     proplists:get_value(Key, Props, Default).
 
+-spec set_value(Key::list() | binary(), JsonObj::json_object(), Value::json_term()) -> json_object().
+set_value(Key, JsonObj, Value) when is_list(Key) ->
+  set_value(list_to_binary(Key), JsonObj, Value);
+set_value(Key, JsonObj, Value) ->
+  {Props} = JsonObj,
+  {lists:keystore(Key, 1, Props, Value)}.
 
 %% Internal API
 
