@@ -117,9 +117,10 @@ get_value(Key, JsonObj) ->
 -spec get_value(Key::list() | binary(), JsonObj::json_object(), Default::term()) -> term().
 get_value(Key, JsonObj, Default) when is_list(Key) ->
     get_value(list_to_binary(Key), JsonObj, Default);
-get_value(Key, JsonObj, Default) when is_binary(Key) ->
-    {Props} = JsonObj,
-    proplists:get_value(Key, Props, Default).
+get_value(Key, {Props}, Default) when is_binary(Key) ->
+    proplists:get_value(Key, Props, Default);
+get_value(_Key, _Value, Default) ->
+    Default.
 
 -spec set_value(Key::list() | binary(), Value::json_term(), JsonObj::json_object()) -> json_object().
 set_value(Key, Value, JsonObj) when is_list(Key) ->
