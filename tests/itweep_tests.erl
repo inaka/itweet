@@ -28,8 +28,8 @@
 -define(TIMEOUT, 300000). %% 5 min.
 -define(RUNNING, 10000). %% 10 secs.
 
--record(state, {events = []   :: [{atom(), itweet_mochijson2:json_object()}],
-                statuses = [] :: [itweet_mochijson2:json_object()]}).
+-record(state, {events = []   :: [{atom(), itweep:event_data()}],
+                statuses = [] :: [itweep:tweet()]}).
 -opaque state() :: #state{}.
 
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).
@@ -135,7 +135,7 @@ init([]) ->
   {ok, #state{}}.
 
 %% @hidden
--spec handle_status(Status::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_status(Status::itweep:tweet(), State::term()) -> {ok, state()}.
 handle_status(Status, State = #state{statuses = Statuses}) ->
 %  case length(Statuses) of
 %    L when L rem 100 =:= 0 ->
@@ -146,12 +146,12 @@ handle_status(Status, State = #state{statuses = Statuses}) ->
   {ok, State#state{statuses = [Status|Statuses]}}.
 
 %% @hidden
--spec handle_event(Event::atom(), Data::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_event(Event::atom(), Data::itweep:event_data(), State::term()) -> {ok, state()}.
 handle_event(Event, Data, State = #state{events = Events}) ->
   {ok, State#state{events = [{Event, Data}|Events]}}.
 
 %% @hidden
--spec handle_call(Msg::term(), From::reference(), State::term()) -> {ok, ok | {[itweet_mochijson2:json_object()], [itweet_mochijson2:json_object()]}, state()} | {stop, normal, ok, state()}.
+-spec handle_call(Msg::term(), From::reference(), State::term()) -> {ok, ok | {[itweep:event_data()], [itweep:tweet()]}, state()} | {stop, normal, ok, state()}.
 handle_call(get, _From, State = #state{statuses = Statuses,
                                        events   = Events}) ->
   {ok, {lists:reverse(Events), lists:reverse(Statuses)}, State};

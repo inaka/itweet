@@ -9,10 +9,10 @@
 %%%   <pre>init(Args::term()) -> {@link init_result()}</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::{@link itweet_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>  
+%%%   <pre>handle_status(Status::{@link itweep:tweet()}, State::term()) -> {@link handler_result()}</pre>  
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
-%%%   <pre>handle_event(Event::atom(), Data::{@link itweet_mochijson2:json_object()}, State::term()) -> {@link handler_result()}</pre>
+%%%   <pre>handle_event(Event::atom(), Data::{@link itweep:event_data()}, State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an event is received from twitter<br/>
 %%%   </li><li>
 %%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> {@link call_result()}</pre>
@@ -46,6 +46,10 @@
 -vsn("1.0").
 
 -behaviour(gen_server).
+
+-type tweet() :: itweet_mochijson2:json_object().
+-type event_data() :: itweet_mochijson2:json_object().
+-export_type([tweet/0, event_data/0]).
 
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.

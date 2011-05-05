@@ -49,7 +49,7 @@ init([]) ->
   {ok, #state{}}.
 
 %% @hidden
--spec handle_status(Status::itweet_mochijson2:json_object(), State::term()) -> {stop, normal, state()}.
+-spec handle_status(Status::itweep:tweet(), State::term()) -> {stop, normal, state()}.
 handle_status(Status, State) ->
 %% handle_status(Status, State) ->
 %%   User = case itweet_mochijson2:get_value("user", Status) of
@@ -62,7 +62,7 @@ handle_status(Status, State) ->
   {stop, normal, State}.
 
 %% @hidden
--spec handle_event(Event::atom(), Data::itweet_mochijson2:json_object(), State::term()) -> {ok, state()}.
+-spec handle_event(Event::atom(), Data::itweep:event_data(), State::term()) -> {ok, state()}.
 handle_event(Event, Data, State) ->
   io:format("~p - ~p:~p -> ~p: ~p~n", [calendar:local_time(), ?MODULE, ?LINE, Event, Data]),
   {ok, State}.
