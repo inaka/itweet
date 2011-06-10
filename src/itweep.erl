@@ -55,7 +55,7 @@
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
 -type start_option() :: {user, string()} | {password, string()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
--type method() :: rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
+-type method() :: wait | rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
 -export_type([gen_start_option/0, start_option/0, start_result/0, method/0]).
 
 -type init_result()     :: {ok, State::term()} | ignore | {stop, Reason::term()}.
@@ -84,18 +84,22 @@
 %% GEN SERVER
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-define(INITIAL_BACKOFF, 10000).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INTERNALS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--record(state, {module      :: atom(), % Callback module
-                mod_state   :: term(), % Callback module state
-                user        :: string(),
-                password    :: string(),
-                req_id      :: undefined | ibrowse:req_id(),
-                buffer      :: binary(),
-                http_status :: string(),
-                http_headers:: [{string(), string()}],
-                method= rest:: method()
+-record(state, {module                      :: atom(), % Callback module
+                mod_state                   :: term(), % Callback module state
+                user                        :: string(),
+                password                    :: string(),
+                req_id                      :: undefined | ibrowse:req_id(),
+                buffer                      :: binary(),
+                http_status                 :: string(),
+                http_headers                :: [{string(), string()}],
+                method= rest                :: method(),
+                backoff = ?INITIAL_BACKOFF  :: pos_integer(),
+                reconnect_timer             :: undefined | reference()
                }).
 -opaque state() :: #state{}.
 
@@ -196,6 +200,7 @@ current_method(Server) ->
 %% @hidden
 -spec init({atom(), term(), string(), string()}) -> {ok, state()} | ignore | {stop, term()}.
 init({Mod, InitArgs, User, Password}) ->
+  _Seed = random:seed(erlang:now()),
   case Mod:init(InitArgs) of
     {ok, ModState} ->
       {ok, #state{module    = Mod,
@@ -231,16 +236,23 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
 
 %% @hidden
 -spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()} | {stop, term(), state()}.
-handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId}) ->
+handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId, reconnect_timer = Timer}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
+  case Timer of
+    undefined -> false;
+    Timer -> erlang:cancel_timer(Timer)
+  end,
   case connect(Url, IOptions, User, Password) of
     {ok, ReqId} ->
       stream_close(OldReqId),
-      {noreply, State#state{req_id = ReqId, method = M}};
+      {noreply, State#state{req_id = ReqId, method = M, reconnect_timer = undefined}};
     {error, Reason} ->
       {stop, {error, Reason}, State}
   end;
+handle_cast(wait, State = #state{req_id = OldReqId}) ->
+  stream_close(OldReqId),
+  {noreply, State#state{req_id = undefined, method = wait}};
 handle_cast(rest, State = #state{req_id = OldReqId}) ->
   stream_close(OldReqId),
   {noreply, State#state{req_id = undefined, method = rest}}.
@@ -310,7 +322,7 @@ handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = 
                  end
          end, ModState, Jsons),
       ok = ibrowse:stream_next(ReqId),
-      {noreply, State#state{buffer = NewBuffer, mod_state = NewModSt}}
+      {noreply, State#state{buffer = NewBuffer, mod_state = NewModSt, backoff = ?INITIAL_BACKOFF}}
   end;
 handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = ReqId,
                                                                   buffer      = Buffer}) ->
@@ -333,6 +345,24 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
       {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = ReqId,
+                                                                http_status = "420",
+                                                                module      = Mod,
+                                                                mod_state   = ModState,
+                                                                method      = Method,
+                                                                backoff     = Backoff}) ->
+  case run_handler(fun() -> Mod:handle_event(rate_limited, null, ModState) end) of
+    {ok, NewModSt} ->
+      NextBackoff = Backoff + random:uniform(Backoff),
+      error_logger:info_msg("~p, ~p - ~p: We've been rate limited. Waiting ~p ms~n",
+                            [self(), calendar:local_time(), ?MODULE, NextBackoff]),
+      Timer = erlang:send_after(NextBackoff, self(), {reconnect, Method}),
+      handle_cast(wait, State#state{backoff = NextBackoff, mod_state = NewModSt,
+                                    reconnect_timer = Timer});
+    {stop, Reason, NewModSt} ->
+      error_logger:error_msg("~p - ~p: Stream ended.  There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
+      {stop, Reason, State#state{mod_state = NewModSt}}
+  end;
+handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = ReqId,
                                                                 http_status = Code,
                                                                 http_headers= Headers,
                                                                 module      = Mod,
@@ -349,6 +379,13 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
       {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, _OldReqId}, State) ->
+  {noreply, State};
+%% RECONNECTION ------------------------------------------------------------------------------------
+handle_info({reconnect, Method}, State = #state{method = wait}) ->
+  error_logger:info_msg("~p, ~p - ~p: Reconnecting...~n", [self(), calendar:local_time(), ?MODULE]),
+  handle_cast(Method, State#state{reconnect_timer = undefined});
+handle_info({reconnect, _Method}, State) -> %% It's no longer waiting
+  error_logger:info_msg("~p, ~p - ~p: Already econnected...~n", [self(), calendar:local_time(), ?MODULE]),
   {noreply, State};
 %% OTHERs ------------------------------------------------------------------------------------------
 handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
