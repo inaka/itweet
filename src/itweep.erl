@@ -45,6 +45,8 @@
 -author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
 -vsn("1.0").
 
+-define(MAX_ERLANG_TIMER_MILLIS, 4294967295).
+
 -behaviour(gen_server).
 
 -type tweet() :: itweet_mochijson2:json_object().
@@ -352,7 +354,7 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
                                                                 backoff     = Backoff}) ->
   case run_handler(fun() -> Mod:handle_event(rate_limited, null, ModState) end) of
     {ok, NewModSt} ->
-      NextBackoff = Backoff + random:uniform(Backoff),
+      NextBackoff = erlang:min(?MAX_ERLANG_TIMER_MILLIS, Backoff + random:uniform(Backoff)),
       error_logger:info_msg("~p, ~p - ~p: We've been rate limited. Waiting ~p ms~n",
                             [self(), calendar:local_time(), ?MODULE, NextBackoff]),
       Timer = erlang:send_after(NextBackoff, self(), {reconnect, Method}),
