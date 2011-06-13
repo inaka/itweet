@@ -352,12 +352,12 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
                                                                 mod_state   = ModState,
                                                                 method      = Method,
                                                                 backoff     = Backoff}) ->
-  case run_handler(fun() -> Mod:handle_event(rate_limited, null, ModState) end) of
+  case run_handler(fun() -> Mod:handle_event(rate_limited, Backoff, ModState) end) of
     {ok, NewModSt} ->
       NextBackoff = erlang:min(?MAX_ERLANG_TIMER_MILLIS, Backoff + random:uniform(Backoff)),
       error_logger:info_msg("~p, ~p - ~p: We've been rate limited. Waiting ~p ms~n",
                             [self(), calendar:local_time(), ?MODULE, NextBackoff]),
-      Timer = erlang:send_after(NextBackoff, self(), {reconnect, Method}),
+      Timer = erlang:send_after(Backoff, self(), {reconnect, Method}),
       handle_cast(wait, State#state{backoff = NextBackoff, mod_state = NewModSt,
                                     reconnect_timer = Timer});
     {stop, Reason, NewModSt} ->
