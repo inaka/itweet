@@ -237,13 +237,13 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
   end.
 
 %% @hidden
--spec handle_cast(rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()} | {stop, term(), state()}.
+-spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId, reconnect_timer = Timer}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
   case Timer of
-    undefined -> false;
-    Timer -> erlang:cancel_timer(Timer)
+    undefined -> ok;
+    Timer -> _ = erlang:cancel_timer(Timer), ok
   end,
   case connect(Url, IOptions, User, Password) of
     {ok, ReqId} ->
