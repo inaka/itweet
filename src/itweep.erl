@@ -55,7 +55,7 @@
 
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
--type start_option() :: {user, string()} | {password, string()} | gen_start_option().
+-type start_option() :: {user, string()} | {password, string()} | {stream_timeout, pos_integer()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
 -type method() :: wait | rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
 -export_type([gen_start_option/0, start_option/0, start_result/0, method/0]).
@@ -101,7 +101,8 @@
                 http_headers                :: [{string(), string()}],
                 method= rest                :: method(),
                 backoff = ?INITIAL_BACKOFF  :: pos_integer(),
-                reconnect_timer             :: undefined | reference()
+                reconnect_timer             :: undefined | reference(),
+                stream_timeout = 90000      :: pos_integer()
                }).
 -opaque state() :: #state{}.
 
@@ -124,26 +125,26 @@ behaviour_info(_Other) ->
 %%% @doc  Starts a generic server.
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
-  {User, Password, OtherOptions} = parse_start_options(Options),
-  gen_server:start(?MODULE, {Mod, Args, User, Password}, OtherOptions).
+  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start(?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
-  {User, Password, OtherOptions} = parse_start_options(Options),
-  gen_server:start(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
+  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start(Name, ?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
-  {User, Password, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(?MODULE, {Mod, Args, User, Password}, OtherOptions).
+  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
-  {User, Password, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password}, OtherOptions).
+  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results
 -spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
@@ -200,44 +201,52 @@ current_method(Server) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% @hidden
--spec init({atom(), term(), string(), string()}) -> {ok, state()} | ignore | {stop, term()}.
-init({Mod, InitArgs, User, Password}) ->
+-spec init({atom(), term(), string(), string(), pos_integer()}) -> {ok, state()} | ignore | {stop, term()}.
+init({Mod, InitArgs, User, Password, StreamTimeout}) ->
   _Seed = random:seed(erlang:now()),
   case Mod:init(InitArgs) of
     {ok, ModState} ->
-      {ok, #state{module    = Mod,
-                  mod_state = ModState,
-                  user      = User,
-                  password  = Password}};
+      {ok, #state{module        = Mod,
+                  mod_state     = ModState,
+                  user          = User,
+                  password      = Password,
+                  stream_timeout= StreamTimeout}};
     Other ->
       Other
   end.
 
 %% @hidden
--spec handle_call(term(), reference(), state()) -> {reply, term(), state()} | {stop, normal | shutdown | term(), term(), state()}.
+-spec handle_call(term(), reference(), state()) -> {reply, term(), state(), pos_integer() | infinity} | {stop, normal | shutdown | term(), term(), state()}.
 handle_call(current_method, _From, State = #state{method = Method}) ->
-  {reply, Method, State};
+  {reply, Method, State, timeout(State)};
 handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModState}) ->
   try Mod:handle_call(Request, From, ModState) of
-    {ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
+    {ok, Reply, NewModSt} ->
+      {reply, Reply, State#state{mod_state = NewModSt}, timeout(State)};
     {ok, NewMethod, Reply, NewModSt} ->
       case handle_cast(NewMethod, State#state{mod_state = NewModSt}) of
-        {noreply, NewState} ->
-          {reply, Reply, NewState};
+        {noreply, NewState, StreamTimeout} ->
+          {reply, Reply, NewState, StreamTimeout};
         {stop, Reason, NewState} ->
           {stop, Reason, Reply, NewState}
       end;
     {stop, Reason, Reply, NewModSt} -> {stop, Reason, Reply, State#state{mod_state = NewModSt}}
   catch
-    _:{ok, Reply, NewModSt} -> {reply, Reply, State#state{mod_state = NewModSt}};
+    _:{ok, Reply, NewModSt} ->
+      {reply, Reply, State#state{mod_state = NewModSt}, timeout(State)};
     _:{ok, NewMethod, Reply, NewModSt} ->
-      {noreply, NewState} = handle_cast(NewMethod, State#state{mod_state = NewModSt}),
-      {reply, Reply, NewState};
-    _:{stop, Reason, Reply, NewModSt} -> {stop, Reason, Reply, State#state{mod_state = NewModSt}}    
+      case handle_cast(NewMethod, State#state{mod_state = NewModSt}) of
+        {noreply, NewState, StreamTimeout} ->
+          {reply, Reply, NewState, StreamTimeout};
+        {stop, Reason, NewState} ->
+          {stop, Reason, Reply, NewState}
+      end;
+    _:{stop, Reason, Reply, NewModSt} ->
+      {stop, Reason, Reply, State#state{mod_state = NewModSt}}    
   end.
 
 %% @hidden
--spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state()} | {stop, term(), state()}.
+-spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId, reconnect_timer = Timer}) ->
   BasicUrl = ["http://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
@@ -248,20 +257,27 @@ handle_cast(M = {Method, Options}, State = #state{user = User, password = Passwo
   case connect(Url, IOptions, User, Password) of
     {ok, ReqId} ->
       stream_close(OldReqId),
-      {noreply, State#state{req_id = ReqId, method = M, reconnect_timer = undefined}};
+      NewState = State#state{req_id = ReqId, method = M, reconnect_timer = undefined,
+                            http_headers = [], http_status = undefined},
+      {noreply, NewState, timeout(NewState)};
     {error, Reason} ->
       {stop, {error, Reason}, State}
   end;
 handle_cast(wait, State = #state{req_id = OldReqId}) ->
   stream_close(OldReqId),
-  {noreply, State#state{req_id = undefined, method = wait}};
+  NewState = State#state{req_id = undefined, method = wait},
+  {noreply, NewState, timeout(NewState)};
 handle_cast(rest, State = #state{req_id = OldReqId}) ->
   stream_close(OldReqId),
-  {noreply, State#state{req_id = undefined, method = rest}}.
+  NewState = State#state{req_id = undefined, method = rest},
+  {noreply, NewState, timeout(NewState)}.
 
 %% @hidden
+-spec handle_info(term(), state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
+%% STREAM TIMEOUT ----------------------------------------------------------------------------------
+handle_info(timeout, State) ->
+  handle_cast(State#state.method, State);
 %% RESPONSE HEADERS --------------------------------------------------------------------------------
--spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
 handle_info({ibrowse_async_headers, ReqId, Code, Headers}, State = #state{req_id    = ReqId,
                                                                           module    = Mod,
                                                                           mod_state = ModState}) ->
@@ -272,12 +288,12 @@ handle_info({ibrowse_async_headers, ReqId, Code, Headers}, State = #state{req_id
   case run_handler(fun() -> Mod:handle_event(stream_start, null, ModState) end) of
     {ok, NewModSt} ->
       ok = ibrowse:stream_next(ReqId),
-      {noreply, NewState#state{mod_state = NewModSt}};
+      {noreply, NewState#state{mod_state = NewModSt}, timeout(NewState)};
     {stop, Reason, NewModSt} ->
       {stop, Reason, NewState#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_headers, _OldReqId, _Code, _Headers}, State) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 %% RESPONSE BODY -----------------------------------------------------------------------------------
 handle_info({ibrowse_async_response, ReqId, {error, req_timedout}}, State = #state{req_id = ReqId}) ->
   error_logger:error_msg("~p - ~p: There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
@@ -286,9 +302,9 @@ handle_info({ibrowse_async_response, ReqId, {error, Error}}, State = #state{req_
   error_logger:error_msg("~p - ~p: Error querying twitter: ~p~n", [calendar:local_time(), ?MODULE, Error]),
   {stop, {error, Error}, State};
 handle_info({ibrowse_async_response, ReqId, <<>>}, State = #state{req_id = ReqId}) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 handle_info({ibrowse_async_response, ReqId, <<$\n>>}, State = #state{req_id = ReqId}) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = ReqId,
                                                                   module      = Mod,
                                                                   http_status = "200",
@@ -297,7 +313,7 @@ handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = 
   case binary:split(Body, <<$\r>>, [global, trim]) of
     [Body] -> %% No \r
       ok = ibrowse:stream_next(ReqId),
-      {noreply, State#state{buffer = <<Buffer/binary, $|, Body/binary>>}};
+      {noreply, State#state{buffer = <<Buffer/binary, $|, Body/binary>>}, timeout(State)};
     [Head|Tail] ->
       RealBuffer = re:replace(Buffer, <<"\\|">>, <<>>, [global, {return, binary}]),
       {Jsons, NewBuffer} =
@@ -324,15 +340,15 @@ handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = 
                  end
          end, ModState, Jsons),
       ok = ibrowse:stream_next(ReqId),
-      {noreply, State#state{buffer = NewBuffer, mod_state = NewModSt, backoff = ?INITIAL_BACKOFF}}
+      {noreply, State#state{buffer = NewBuffer, mod_state = NewModSt, backoff = ?INITIAL_BACKOFF}, timeout(State)}
   end;
 handle_info({ibrowse_async_response, ReqId, Body}, State = #state{req_id      = ReqId,
                                                                   buffer      = Buffer}) ->
-  {noreply, State#state{buffer = <<Buffer/binary, Body/binary>>}};
+  {noreply, State#state{buffer = <<Buffer/binary, Body/binary>>}, timeout(State)};
 handle_info({ibrowse_async_response, _OldReqId, {error, closing_on_request}}, State) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 handle_info({ibrowse_async_response, _OldReqId, _Body}, State) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 %% RESPONSE END ------------------------------------------------------------------------------------
 handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = ReqId,
                                                                 http_status = "200",
@@ -381,18 +397,18 @@ handle_info({ibrowse_async_response_end, ReqId}, State = #state{req_id      = Re
       {stop, Reason, State#state{mod_state = NewModSt}}
   end;
 handle_info({ibrowse_async_response_end, _OldReqId}, State) ->
-  {noreply, State};
+  {noreply, State, timeout(State)};
 %% RECONNECTION ------------------------------------------------------------------------------------
 handle_info({reconnect, Method}, State = #state{method = wait}) ->
   error_logger:info_msg("~p, ~p - ~p: Reconnecting...~n", [self(), calendar:local_time(), ?MODULE]),
   handle_cast(Method, State#state{reconnect_timer = undefined});
 handle_info({reconnect, _Method}, State) -> %% It's no longer waiting
   error_logger:info_msg("~p, ~p - ~p: Already econnected...~n", [self(), calendar:local_time(), ?MODULE]),
-  {noreply, State};
+  {noreply, State, timeout(State)};
 %% OTHERs ------------------------------------------------------------------------------------------
 handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
   case run_handler(fun() -> Mod:handle_info(Info, ModState) end) of
-    {ok, NewModSt} -> {noreply, State#state{mod_state = NewModSt}};
+    {ok, NewModSt} -> {noreply, State#state{mod_state = NewModSt}, timeout(State)};
     {stop, Reason, NewModSt} -> {stop, Reason, State#state{mod_state = NewModSt}}
   end.
 
@@ -418,7 +434,11 @@ parse_start_options(Options) ->
                undefined -> throw({missing_option, password});
                P -> P
              end,
-  {User, Password, proplists:delete(user, proplists:delete(password, Options))}.
+  StreamTimeout = case proplists:get_value(stream_timeout, Options) of
+                    undefined -> 90000;
+                    ST -> ST
+                  end, 
+  {User, Password, StreamTimeout, proplists:delete(user, proplists:delete(password, Options))}.
 
 build_url(BasicUrl, Options) ->
   build_url(Options, $?, BasicUrl, []).
@@ -521,3 +541,8 @@ connect(Url, IOptions, User, Password) ->
       error_logger:error_msg("~p - ~p: System Error trying to connect with twitter:~n\t~p~n", [calendar:local_time(), ?MODULE, Error]),
       {error, Error}
   end.
+
+timeout(#state{method = rest}) -> infinity;
+timeout(#state{method = wait}) -> infinity;
+timeout(#state{http_status = "200", stream_timeout = Timeout}) -> Timeout;
+timeout(_) -> infinity.

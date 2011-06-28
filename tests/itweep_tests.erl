@@ -69,15 +69,16 @@ itweep_test_() ->
      {inorder,
       [{timeout, ?TIMEOUT, Test} || Test <- [?_test(filter([follow])),
                                              ?_test(filter([track])),
-                                             ?_test(filter([locations])),
+                                             ?_test(filter([locations])) %,
                                              %?_test(filter([follow, track])),
                                              %?_test(filter([follow, locations])),
                                              %?_test(filter([locations, track])),
                                              %?_test(filter([follow, track, locations])),
-                                             ?_test(sample()),
-                                             ?_test(firehose()),
-                                             ?_test(retweet()),
-                                             ?_test(links())]]
+                                             %?_test(sample()),
+                                             %?_test(firehose()),
+                                             %?_test(retweet()),
+                                             %?_test(links())
+                                             ]]
       }
   }.
 
@@ -187,7 +188,7 @@ get_results() ->
     {stream_error, ErrorJson} ->
       case itweet_mochijson2:get_value("code", ErrorJson, null) of
         <<"403">> ->
-          unauthorized;
+          ?fail(unauthorized);
         <<"413">> ->
           ?fail(too_many);
         <<"420">> ->
