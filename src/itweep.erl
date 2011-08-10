@@ -298,6 +298,9 @@ handle_info({ibrowse_async_headers, _OldReqId, _Code, _Headers}, State) ->
 handle_info({ibrowse_async_response, ReqId, {error, req_timedout}}, State = #state{req_id = ReqId}) ->
   error_logger:error_msg("~p - ~p: There're no more twitter results~n", [calendar:local_time(), ?MODULE]),
   {stop, normal, State};
+handle_info({ibrowse_async_response, ReqId, {error, connection_closed}}, State = #state{req_id = ReqId}) ->
+  error_logger:error_msg("~p - ~p: Twitter hung up on us~n", [calendar:local_time(), ?MODULE]),
+  {stop, normal, State};
 handle_info({ibrowse_async_response, ReqId, {error, Error}}, State = #state{req_id = ReqId}) ->
   error_logger:error_msg("~p - ~p: Error querying twitter: ~p~n", [calendar:local_time(), ?MODULE, Error]),
   {stop, {error, Error}, State};
