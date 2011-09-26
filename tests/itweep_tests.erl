@@ -69,15 +69,15 @@ itweep_test_() ->
      {inorder,
       [{timeout, ?TIMEOUT, Test} || Test <- [?_test(filter([follow])),
                                              ?_test(filter([track])),
-                                             ?_test(filter([locations])) %,
-                                             %?_test(filter([follow, track])),
-                                             %?_test(filter([follow, locations])),
-                                             %?_test(filter([locations, track])),
-                                             %?_test(filter([follow, track, locations])),
-                                             %?_test(sample()),
-                                             %?_test(firehose()),
-                                             %?_test(retweet()),
-                                             %?_test(links())
+                                             ?_test(filter([locations])),
+                                             ?_test(filter([follow, track])),
+                                             ?_test(filter([follow, locations])),
+                                             ?_test(filter([locations, track])),
+                                             ?_test(filter([follow, track, locations])),
+                                             ?_test(sample()),
+                                             ?_test(firehose()),
+                                             ?_test(retweet()),
+                                             ?_test(links())
                                              ]]
       }
   }.
@@ -105,26 +105,20 @@ sample() ->
 firehose() ->
   ?debugMsg("\nfirehose"),
   ok = itweep:firehose(?MODULE, []),
-  case get_results() of
-    unauthorized -> ok;
-    Statuses -> ?assertLess(0, length(Statuses))
-  end.
+  Statuses = get_results(),
+  ?assertLess(0, length(Statuses)).
 
 retweet() ->
   ?debugMsg("\nretweet"),
   ok = itweep:retweet(?MODULE, []),
-  case get_results() of
-    unauthorized -> ok;
-    Statuses -> ?assertLess(0, length(Statuses))
-  end.
+  Statuses = get_results(),
+  ?assertLess(0, length(Statuses)).
 
 links() ->
   ?debugMsg("\nlinks"),
   ok = itweep:links(?MODULE, []),
-  case get_results() of
-    unauthorized -> ok;
-    Statuses -> ?assertLess(0, length(Statuses))
-  end.
+  Statuses = get_results(),
+  ?assertLess(0, length(Statuses)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% ITWEEP FUNCTIONS

@@ -33,7 +33,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% API FUNCTIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
--spec start(User::string(), Password::string(), Seed::string()) -> itweep:start_result().
+-spec start(User::string(), Password::string(), Seed::string()) -> {ok, pid()}.
 start(User, Password, Seed) ->
   {ok, Pid} = itweep:start(?MODULE, Seed, [{user, User}, {password, Password}]),
   ok = itweep:filter(Pid, [{track, [Seed]}]),
@@ -106,7 +106,7 @@ handle_event(Event, Data, State) ->
   {ok, State}.
 
 %% @hidden
--spec handle_call(timeout | stop, From::reference(), State::term()) -> {ok, {filter, [{track, [string()]}]}, ok, state()} | {ok, ok, state()} | {stop, normal, ok, state()}.
+-spec handle_call(timeout | stop, From::reference(), State::term()) -> {ok, {string(), [{track, [string()]},...]}, ok, state()} | {stop, normal, ok, state()}.
 handle_call(timeout, _From, State) ->
   {ok, Ref} = timer:apply_after(10000, itweep, call, [self(), timeout]),
   Track = lists:map(fun binary_to_list/1, State#state.waiting_for),
