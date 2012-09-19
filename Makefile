@@ -17,7 +17,11 @@ xref: all
 	rebar skip_deps=true xref
 	
 test: all
-	if [ -f test.config ]; then erl -noshell -config test -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -run itweep_tests main; else erl -noshell -pa ebin -pa deps/riak_err/ebin -pa deps/ibrowse/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -run itweep_tests main; fi
+	if [ -f test.config ]; then \
+		erl -noshell -config test -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -s itweet -run itweep_tests main; \
+	else \
+		erl -noshell -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -s itweet -run itweep_tests main; \
+	fi
 
 shell: all
 	erl -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -s ssl -s itweet
