@@ -55,11 +55,13 @@ main() ->
 itweep_test_() ->
   {setup,
    _Start = fun() ->
-                    {ok, User} = application:get_env(itweet, user),
-                    {ok, Pwd}  = application:get_env(itweet, password),
+                    {ok, CKey} = application:get_env(itweet, consumer_key),
+                    {ok, CSecret}  = application:get_env(itweet, consumer_secret),
+                    {ok, Token} = application:get_env(itweet, access_token),
+                    {ok, Secret} = application:get_env(itweet, access_secret),
                     {ok, _Pid} = itweep:start_link({local, ?MODULE}, ?MODULE, [],
-                                                   [{user,     User},
-                                                    {password, Pwd}]),
+                                                   [{token,  Token},
+                                                    {secret, Secret}]),
                     ok
             end,
    _Stop = fun(_) ->
