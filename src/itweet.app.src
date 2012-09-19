@@ -8,6 +8,9 @@
                   stdlib,
                   ssl
                  ]},
-  {mod, {no_app, []}},
-	{env, []}
+  {mod, {itweet, []}},
+	{env, [
+    {consumer_key, "app_consumer_key"},
+    {consumer_secret, "app_consumer_secret"}
+  ]}
  ]}.
