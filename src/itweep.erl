@@ -43,7 +43,7 @@
 
 -module(itweep).
 -author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
--vsn("1.0").
+-vsn("2.0").
 
 -define(MAX_ERLANG_TIMER_MILLIS, 4294967295).
 
@@ -242,19 +242,19 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
           {stop, Reason, Reply, NewState}
       end;
     _:{stop, Reason, Reply, NewModSt} ->
-      {stop, Reason, Reply, State#state{mod_state = NewModSt}}    
+      {stop, Reason, Reply, State#state{mod_state = NewModSt}}
   end.
 
 %% @hidden
 -spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{token = Token, secret = Secret, req_id = OldReqId, reconnect_timer = Timer}) ->
-  BasicUrl = ["https://stream.twitter.com/1/statuses/", Method, ".json"],
-  {Url, IOptions} = build_url(BasicUrl, Options),
+  Url = "https://stream.twitter.com/1/statuses/" ++ Method ++ ".json",
+  {QueryString, IOptions} = extract_query_string(Options),
   case Timer of
     undefined -> ok;
     Timer -> _ = erlang:cancel_timer(Timer), ok
   end,
-  case connect(Url, IOptions, Token, Secret) of
+  case connect(Url, QueryString, IOptions, Token, Secret) of
     {ok, ReqId} ->
       stream_close(OldReqId),
       NewState = State#state{req_id = ReqId, method = M, reconnect_timer = undefined,
@@ -440,40 +440,41 @@ parse_start_options(Options) ->
   StreamTimeout = case proplists:get_value(stream_timeout, Options) of
                     undefined -> 90000;
                     ST -> ST
-                  end, 
+                  end,
   {Token, Secret, StreamTimeout, proplists:delete(token, proplists:delete(secret, Options))}.
 
-build_url(BasicUrl, Options) ->
-  build_url(Options, $?, BasicUrl, []).
-build_url([], _Sep, Url, Options) -> {lists:flatten(Url), Options};
-build_url([{count, V} | Rest], Sep, Url, Ops) ->
-  build_url(Rest, $&, [Url, Sep, "count=", integer_to_list(V)], Ops);
-build_url([{delimited, length} | Rest], Sep, Url, Ops) ->
-  build_url(Rest, $&, [Url, Sep, "delimited=length"], Ops);
-build_url([{follow, V} | Rest], Sep, Url, Ops) ->
+extract_query_string(Options) ->
+  extract_query_string(Options, [], []).
+
+extract_query_string([], Qs, Options) -> {Qs, Options};
+extract_query_string([{count, V} | Rest], Qs, Ops) ->
+  extract_query_string(Rest, [{"count", integer_to_list(V)} | Qs], Ops);
+extract_query_string([{delimited, length} | Rest], Qs, Ops) ->
+  extract_query_string(Rest, [{"delimited", "length"} | Qs], Ops);
+extract_query_string([{follow, V} | Rest], Qs, Ops) ->
   Users =
     lists:foldl(fun(User, []) ->
                         integer_to_list(User);
                    (User, Acc) ->
                         Acc ++ [$, | integer_to_list(User)]
                 end, [], V),
-  build_url(Rest, $&, [Url, Sep, "follow=", Users], Ops);
-build_url([{track, V} | Rest], Sep, Url, Ops) ->
+  extract_query_string(Rest, [{"follow", Users} | Qs], Ops);
+extract_query_string([{track, V} | Rest], Qs, Ops) ->
   Terms =
     lists:foldl(fun(Term, []) -> ibrowse_lib:url_encode(Term);
                    (Term, Acc) -> Acc ++ [$, | ibrowse_lib:url_encode(Term)]
                 end, [], V),
-  build_url(Rest, $&, [Url , Sep, "track=", Terms], Ops);
-build_url([{locations, V} | Rest], Sep, Url, Ops) ->
+  extract_query_string(Rest, [{"track", Terms} | Qs], Ops);
+extract_query_string([{locations, V} | Rest], Qs, Ops) ->
   Locations =
     lists:foldl(fun({L1,L2,L3,L4}, []) ->
                         io_lib:format("~.5g,~.5g,~.5g,~.5g", [L1,L2,L3,L4]);
                    ({L1,L2,L3,L4}, Acc) ->
                         io_lib:format("~s,~.5g,~.5g,~.5g,~.5g", [Acc,L1,L2,L3,L4])
                 end, [], V),
-  build_url(Rest, $&, [Url, Sep, "locations=", Locations], Ops);
-build_url([O|Rest], Sep, Url, Ops) ->
-  build_url(Rest, Sep, Url, [O|Ops]).
+  extract_query_string(Rest, [{"locations", lists:flatten(Locations)} | Qs], Ops);
+extract_query_string([O|Rest], Qs, Ops) ->
+  extract_query_string(Rest, Qs, [O|Ops]).
 
 stream_close(undefined) -> ok;
 stream_close(OldReqId) ->
@@ -524,36 +525,15 @@ extract_jsons([Next | Rest], Acc) ->
   Json = itweet_mochijson2:decode(Next),
   extract_jsons(Rest, [Json | Acc]).
 
-connect(Url, IOptions, Token, Secret) ->
+connect(Url, Qs, IOptions, Token, Secret) ->
   {ok, CKey} = application:get_env(itweet, consumer_key),
   {ok, CSecret} = application:get_env(itweet, consumer_secret),
   Consumer = {CKey, CSecret, hmac_sha1},
 
-  % Split query string from url.
-  % XXX We actually need to do this because build_url will form a complete URL
-  % with the query string included, this seems like a smaller code refactoring.
-  [BinUrl, BinQueryString] = case string:chr(Url, $?) of
-    0 -> [list_to_binary(Url), <<>>];
-    _ -> re:split(Url, "[?]")
-  end,
-
-  % Traverse query string options, format it as oauth requires.
-  BinQueryStringOptions = case BinQueryString of
-    <<>> -> [];
-    _ -> re:split(BinQueryString, "[&]")
-  end,
-  QueryStringOptions = lists:map(
-    fun(Option) ->
-      [Key,Value] = re:split(Option, "[=]"),
-      {binary_to_list(Key), binary_to_list(Value)}
-    end,
-    BinQueryStringOptions
-  ),
-
   % Execute the request.
-  try oauth:get(
-    binary_to_list(BinUrl), QueryStringOptions,
-    Consumer, Token, Secret, [{stream_to, {self(), once}},{response_format, binary} | IOptions]
+  error_logger:info_report([{url, Url}, {qs, Qs}]),
+  try oauth:get(Url, Qs, Consumer, Token, Secret,
+                [{stream_to, {self(), once}},{response_format, binary} | IOptions]
    ) of
     {ibrowse_req_id, ReqId} ->
       {ok, ReqId};

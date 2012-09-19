@@ -1,6 +1,6 @@
 all:
 	rebar get-deps && rebar compile
-	
+
 clean:
 	rebar clean
 
@@ -15,7 +15,7 @@ doc: all
 
 xref: all
 	rebar skip_deps=true xref
-	
+
 test: all
 	if [ -f test.config ]; then \
 		erl -noshell -config test -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -s itweet -run itweep_tests main; \
