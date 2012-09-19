@@ -55,7 +55,7 @@
 
 -type gen_start_option() :: {timeout, non_neg_integer() | infinity | hibernate} |
                             {debug, [trace | log | {logfile, string()} | statistics | debug]}.
--type start_option() :: {user, string()} | {password, string()} | {stream_timeout, pos_integer()} | gen_start_option().
+-type start_option() :: {token, string()} | {secret, string()} | {stream_timeout, pos_integer()} | gen_start_option().
 -type start_result() :: {ok, pid()} | {error, {already_started, pid()}} | {error, term()}.
 -type method() :: wait | rest | {string(), [filter_option() | gen_option() | ibrowse:option()]}.
 -export_type([gen_start_option/0, start_option/0, start_result/0, method/0]).
@@ -93,8 +93,8 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(state, {module                      :: atom(), % Callback module
                 mod_state                   :: term(), % Callback module state
-                user                        :: string(),
-                password                    :: string(),
+                token                       :: string(),
+                secret                      :: string(),
                 req_id                      :: undefined | ibrowse:req_id(),
                 buffer                      :: binary(),
                 http_status                 :: string(),
@@ -125,26 +125,26 @@ behaviour_info(_Other) ->
 %%% @doc  Starts a generic server.
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
-  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start(?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start(?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
-  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start(Name, ?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
-  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
-  {User, Password, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(Name, ?MODULE, {Mod, Args, User, Password, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results
 -spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
@@ -202,14 +202,14 @@ current_method(Server) ->
 
 %% @hidden
 -spec init({atom(), term(), string(), string(), pos_integer()}) -> {ok, state()} | ignore | {stop, term()}.
-init({Mod, InitArgs, User, Password, StreamTimeout}) ->
+init({Mod, InitArgs, Token, Secret, StreamTimeout}) ->
   _Seed = random:seed(erlang:now()),
   case Mod:init(InitArgs) of
     {ok, ModState} ->
       {ok, #state{module        = Mod,
                   mod_state     = ModState,
-                  user          = User,
-                  password      = Password,
+                  token         = Token,
+                  secret        = Secret,
                   stream_timeout= StreamTimeout}};
     Other ->
       Other
@@ -247,14 +247,14 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
 
 %% @hidden
 -spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
-handle_cast(M = {Method, Options}, State = #state{user = User, password = Password, req_id = OldReqId, reconnect_timer = Timer}) ->
+handle_cast(M = {Method, Options}, State = #state{token = Token, secret = Secret, req_id = OldReqId, reconnect_timer = Timer}) ->
   BasicUrl = ["https://stream.twitter.com/1/statuses/", Method, ".json"],
   {Url, IOptions} = build_url(BasicUrl, Options),
   case Timer of
     undefined -> ok;
     Timer -> _ = erlang:cancel_timer(Timer), ok
   end,
-  case connect(Url, IOptions, User, Password) of
+  case connect(Url, IOptions, Token, Secret) of
     {ok, ReqId} ->
       stream_close(OldReqId),
       NewState = State#state{req_id = ReqId, method = M, reconnect_timer = undefined,
@@ -429,19 +429,19 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% PRIVATE FUNCTIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_start_options(Options) ->
-  User = case proplists:get_value(user, Options) of
-           undefined -> throw({missing_option, user});
+  Token = case proplists:get_value(token, Options) of
+           undefined -> throw({missing_option, token});
            U -> U
          end,
-  Password = case proplists:get_value(password, Options) of
-               undefined -> throw({missing_option, password});
+  Secret = case proplists:get_value(secret, Options) of
+               undefined -> throw({missing_option, secret});
                P -> P
              end,
   StreamTimeout = case proplists:get_value(stream_timeout, Options) of
                     undefined -> 90000;
                     ST -> ST
                   end, 
-  {User, Password, StreamTimeout, proplists:delete(user, proplists:delete(password, Options))}.
+  {Token, Secret, StreamTimeout, proplists:delete(token, proplists:delete(secret, Options))}.
 
 build_url(BasicUrl, Options) ->
   build_url(Options, $?, BasicUrl, []).
@@ -524,10 +524,31 @@ extract_jsons([Next | Rest], Acc) ->
   Json = itweet_mochijson2:decode(Next),
   extract_jsons(Rest, [Json | Acc]).
 
-connect(Url, IOptions, User, Password) ->
-  try ibrowse:send_req(Url, [], get, [], [{basic_auth, {User, Password}},
-                                          {stream_to, {self(), once}},
-                                          {response_format, binary} | IOptions], infinity) of
+connect(Url, IOptions, Token, Secret) ->
+  {ok, CKey} = application:get_env(itweet, consumer_key),
+  {ok, CSecret} = application:get_env(itweet, consumer_secret),
+  Consumer = {CKey, CSecret, hmac_sha1},
+
+  % Split query string from url.
+  % XXX We actually need to do this because build_url will form a complete URL
+  % with the query string included, this seems like a smaller code refactoring.
+  [BinUrl, BinQueryString] = re:split(Url, "[?]"),
+
+  % Traverse query string options, format it as oauth requires.
+  BinQueryStringOptions = re:split(BinQueryString, "[&]"),
+  QueryStringOptions = lists:map(
+    fun(Option) ->
+      [Key,Value] = re:split(Option, "[=]"),
+      {binary_to_list(Key), binary_to_list(Value)}
+    end,
+    BinQueryStringOptions
+  ),
+
+  % Execute the request.
+  try oauth:get(
+    binary_to_list(BinUrl), QueryStringOptions,
+    Consumer, Token, Secret, [{stream_to, {self(), once}},{response_format, binary} | IOptions]
+   ) of
     {ibrowse_req_id, ReqId} ->
       {ok, ReqId};
     {ok, Status, _Headers, Body} ->
