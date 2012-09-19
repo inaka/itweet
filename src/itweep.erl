@@ -532,10 +532,16 @@ connect(Url, IOptions, Token, Secret) ->
   % Split query string from url.
   % XXX We actually need to do this because build_url will form a complete URL
   % with the query string included, this seems like a smaller code refactoring.
-  [BinUrl, BinQueryString] = re:split(Url, "[?]"),
+  [BinUrl, BinQueryString] = case string:chr(Url, $?) of
+    0 -> [list_to_binary(Url), <<>>];
+    _ -> re:split(Url, "[?]")
+  end,
 
   % Traverse query string options, format it as oauth requires.
-  BinQueryStringOptions = re:split(BinQueryString, "[&]"),
+  BinQueryStringOptions = case BinQueryString of
+    <<>> -> [];
+    _ -> re:split(BinQueryString, "[&]")
+  end,
   QueryStringOptions = lists:map(
     fun(Option) ->
       [Key,Value] = re:split(Option, "[=]"),
@@ -563,6 +569,7 @@ connect(Url, IOptions, Token, Secret) ->
       {error, internal_timeout};
     _:Error ->
       error_logger:error_msg("~p - ~p: System Error trying to connect with twitter:~n\t~p~n", [calendar:local_time(), ?MODULE, Error]),
+      error_logger:error_msg("~p~n", [erlang:get_stacktrace()]),
       {error, Error}
   end.
 
