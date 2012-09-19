@@ -43,7 +43,7 @@
 
 -module(itweep).
 -author('Fernando Benavides <fernando.benavides@inakanetworks.com>').
--vsn("1.0").
+-vsn("2.0").
 
 -define(MAX_ERLANG_TIMER_MILLIS, 4294967295).
 
