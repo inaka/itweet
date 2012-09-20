@@ -531,7 +531,6 @@ connect(Url, Qs, IOptions, Token, Secret) ->
   Consumer = {CKey, CSecret, hmac_sha1},
 
   % Execute the request.
-  error_logger:info_report([{url, Url}, {qs, Qs}]),
   try oauth:get(Url, Qs, Consumer, Token, Secret,
                 [{stream_to, {self(), once}},{response_format, binary} | IOptions]
    ) of
