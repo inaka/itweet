@@ -248,7 +248,7 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
 %% @hidden
 -spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{token = Token, secret = Secret, req_id = OldReqId, reconnect_timer = Timer}) ->
-  Url = "https://stream.twitter.com/1/statuses/" ++ Method ++ ".json",
+  Url = "https://stream.twitter.com/1.1/statuses/" ++ Method ++ ".json",
   {QueryString, IOptions} = extract_query_string(Options),
   case Timer of
     undefined -> ok;
