@@ -65,7 +65,7 @@
 -export_type([server/0, geocode/0, filter_option/0]).
 
 -define(DEFAULT_SEARCH_FREQUENCY, 5000).
--define(DEFAULT_QS_OPTIONS, "&rpp=100&result_type=recent").
+-define(DEFAULT_QS_OPTIONS, "&rpp=100&result_type=recent&with_twitter_user_id=true").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EXPORTS
