@@ -217,11 +217,15 @@ handle_cast(rest, State) ->
 handle_cast(Method, State) ->
   NewState = cancel_timer(State),
   Url = build_query_url(Method),
-  handle_info(run_query, NewState#state{method = Method, url = Url}).
+  NewTimer = erlang:send_after(0, self(), run_query),
+  {noreply, NewState#state{method = Method, url = Url, timer = NewTimer}}.
 
 %% @hidden
 -spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
 %% REGULAR INTERNAL STUFF --------------------------------------------------------------------------
+handle_info(run_query, State = #state{method = rest}) ->
+  error_logger:info_msg("Outdated timer, we're resting"),
+  {noreply, State};
 handle_info(run_query, State) ->
   try ibrowse:send_req(State#state.url, [], get, [], []) of
     {ok, "200", _Headers, Body} ->
