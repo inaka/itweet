@@ -9,7 +9,7 @@
 %%%   <pre>init(Args::term()) -> {@link init_result()}</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::{@link tweet()}, State::term()) -> {@link handler_result()}</pre>  
+%%%   <pre>handle_status(Status::{@link tweet()}, State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
 %%%   <pre>handle_call(Msg::term(), From::reference(), State::term()) -> {@link call_result()}</pre>
@@ -65,7 +65,7 @@
 -export_type([server/0, geocode/0, filter_option/0]).
 
 -define(DEFAULT_SEARCH_FREQUENCY, 5000).
--define(DEFAULT_QS_OPTIONS, "&rpp=100&result_type=recent&with_twitter_user_id=true").
+-define(DEFAULT_QS_OPTIONS, [{rpp, 100}, {result_type, recent}, {with_twitter_user_id, true}]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EXPORTS
@@ -84,9 +84,13 @@
 %% INTERNALS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(state, {module                      :: atom(), % Callback module
+                token                       :: string(),
+                secret                      :: string(),
+                consumer                    :: {string(), string(), hmac_sha1},
                 mod_state                   :: term(), % Callback module state
                 method= rest                :: method(),
                 url                         :: string(),
+                qs                          :: [{atom(), term()}],
                 timer                       :: reference(),
                 reconnect_timer             :: undefined | reference(),
                 search_frequency = ?DEFAULT_SEARCH_FREQUENCY :: pos_integer()
@@ -111,26 +115,26 @@ behaviour_info(_Other) ->
 %%% @doc  Starts a generic server.
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
-  {SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start(?MODULE, {Mod, Args, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
+  gen_server:start(?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
-  {SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start(Name, ?MODULE, {Mod, Args, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
+  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
-  {SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(?MODULE, {Mod, Args, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
-  {SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(Name, ?MODULE, {Mod, Args, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
 
 %%% @doc  Starts using the <a href="https://dev.twitter.com/docs/api/1/get/search">search</a> API to get results
 -spec search(server(), string(), [filter_option()]) -> ok.
@@ -168,12 +172,20 @@ current_method(Server) ->
 
 %% @hidden
 -spec init({atom(), term(), pos_integer()}) -> {ok, state()} | ignore | {stop, term()}.
-init({Mod, InitArgs, SearchFrequency}) ->
+init({Mod, InitArgs, Token, Secret, SearchFrequency}) ->
   _Seed = random:seed(erlang:now()),
+  {ok, CKey} = application:get_env(itweet, consumer_key),
+  {ok, CSecret} = application:get_env(itweet, consumer_secret),
+  Consumer = {CKey, CSecret, hmac_sha1},
   case Mod:init(InitArgs) of
     {ok, ModState} ->
       {ok, #state{module            = Mod,
                   mod_state         = ModState,
+                  consumer          = Consumer,
+                  token             = Token,
+                  url               = "http://api.twitter.com/1.1/search/tweets.json",
+                  secret            = Secret,
+                  qs                = ?DEFAULT_QS_OPTIONS,
                   search_frequency  = SearchFrequency}};
     Other ->
       Other
@@ -216,9 +228,9 @@ handle_cast(rest, State) ->
   {noreply, NewState#state{method = rest, url = undefined}};
 handle_cast(Method, State) ->
   NewState = cancel_timer(State),
-  Url = build_query_url(Method),
+  Qs = build_qs(Method),
   NewTimer = erlang:send_after(0, self(), run_query),
-  {noreply, NewState#state{method = Method, url = Url, timer = NewTimer}}.
+  {noreply, NewState#state{method = Method, qs = Qs, timer = NewTimer}}.
 
 %% @hidden
 -spec handle_info(term(), state()) -> {noreply, state()} | {stop, term(), state()}.
@@ -227,7 +239,11 @@ handle_info(run_query, State = #state{method = rest}) ->
   error_logger:info_msg("Outdated timer, we're resting"),
   {noreply, State};
 handle_info(run_query, State) ->
-  try ibrowse:send_req(State#state.url, [], get, [], []) of
+  try oauth:get(
+    State#state.url, State#state.qs,
+    State#state.consumer, State#state.token, State#state.secret,
+    [{response_format, binary}]
+  ) of
     {ok, "200", _Headers, Body} ->
       NewTimer = erlang:send_after(State#state.search_frequency, self(), run_query),
       NewState =
@@ -242,13 +258,19 @@ handle_info(run_query, State) ->
                         {stop, Reason, NextModSt} ->
                           throw({stop, Reason, State#state{mod_state = NextModSt}})
                       end
-               end, State#state.mod_state, proplists:get_value(<<"results">>, Json)),
-            NewUrl =
-              case proplists:get_value(<<"refresh_url">>, Json) of
-                undefined -> State#state.url;
-                RefreshUrl -> build_query_url(RefreshUrl, State#state.method)
+               end, State#state.mod_state, proplists:get_value(<<"statuses">>, Json)),
+            NewQs =
+              case proplists:get_value(<<"search_metadata">>, Json) of
+                undefined -> State#state.qs;
+                {MetaData} -> case proplists:get_value(<<"refresh_url">>, MetaData) of
+                  undefined -> State#state.qs;
+                  RefreshUrl ->
+                    [SinceId, _] = binary:split(RefreshUrl, <<"&">>),
+                    [_, Id] = binary:split(SinceId, <<"=">>),
+                    lists:keystore(since_id, 1, State#state.qs, {since_id, binary_to_list(Id)})
+                end
               end,
-            State#state{url = NewUrl, timer = NewTimer, mod_state = NewModSt}
+            State#state{qs = NewQs, timer = NewTimer, mod_state = NewModSt}
         catch
           _:Error ->
             error_logger:error_msg("Error parsing twitter results for ~s:~n\t~p~n", [State#state.url, Error]),
@@ -263,11 +285,11 @@ handle_info(run_query, State) ->
         end,
       error_logger:warning_msg("Error ~p querying twitter: ~p~n\tRetrying in ~p ms~n", [Code, Body, NextTimeout]),
       NewTimer = erlang:send_after(NextTimeout, self(), run_query),
-      {noreply, State#state{url = build_query_url(State#state.method), timer = NewTimer}};
+      {noreply, State#state{qs = build_qs(State#state.method), timer = NewTimer}};
     Error ->
       error_logger:warning_msg("Error querying twitter: ~p~n\tRetrying in ~p ms~n", [Error, State#state.search_frequency]),
       NewTimer = erlang:send_after(State#state.search_frequency, self(), run_query),
-      {noreply, State#state{url = build_query_url(State#state.method), timer = NewTimer}}
+      {noreply, State#state{qs = build_qs(State#state.method), timer = NewTimer}}
   catch
     _:Error ->
       error_logger:error_msg("ibrowse error with ~s: ~p~n", [State#state.url, Error]),
@@ -293,12 +315,23 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% PRIVATE FUNCTIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 parse_start_options(Options) ->
+  Token = case proplists:get_value(token, Options) of
+           undefined -> throw({missing_option, token});
+           U -> U
+         end,
+  Secret = case proplists:get_value(secret, Options) of
+               undefined -> throw({missing_option, secret});
+               P -> P
+             end,
   SearchFrequency =
     case proplists:get_value(search_frequency, Options) of
       undefined -> ?DEFAULT_SEARCH_FREQUENCY;
       SF -> SF
     end,
-  {SearchFrequency, proplists:delete(search_frequency, Options)}.
+  {
+    Token, Secret, SearchFrequency,
+    proplists:delete(token, proplists:delete(token, proplists:delete(secret, proplists:delete(search_frequency, Options))))
+  }.
 
 run_handler(Fun) ->
   try Fun() of
@@ -310,22 +343,18 @@ run_handler(Fun) ->
     _:{stop, Reason, NewModSt} -> {stop, Reason, NewModSt}
   end.
 
-build_query_url({search, Query, _Options} = Method) ->
-  build_query_url([<<"?q=">>, ibrowse_lib:url_encode(Query)], Method).
-build_query_url(BaseQS, {search, _Query, Options}) ->
-  IOUrl =
-    ["http://search.twitter.com/search.json", BaseQS, ?DEFAULT_QS_OPTIONS] ++
-    lists:foldl(
-      fun ({geocode, {Lat, Lng, Radius}}, QS) ->
-            [QS, "&geocode=", io_lib:format("~.5g,~.5g,~.5gmi", [Lat, Lng, Radius])];
-          ({lang, Lang}, QS) ->
-            [QS, "&lang=", Lang];
-          (include_entities, QS) ->
-            [QS, "&include_entities=true"];
-          (_, QS) ->
-            QS
-      end, [], Options),
-  binary_to_list(iolist_to_binary(IOUrl)).
+build_qs({search, Query, Options}) ->
+  NewQs = [{q, Query}|?DEFAULT_QS_OPTIONS],
+  lists:foldl(
+    fun ({geocode, {Lat, Lng, Radius}}, QS) ->
+          lists:keystore(geocode, 1, QS, {geocode, io_lib:format("~.5g,~.5g,~.5gmi", [Lat, Lng, Radius])});
+        ({lang, Lang}, QS) ->
+          lists:keystore(lang, 1, QS, {lang, Lang});
+        (include_entities, QS) ->
+          lists:keystore(include_entities, 1, QS, {include_entities, "true"});
+        (_, QS) ->
+          QS
+    end, NewQs, Options).
 
 cancel_timer(State = #state{timer = undefined}) -> State;
 cancel_timer(State = #state{timer = Timer}) -> erlang:cancel_timer(Timer), State#state{timer = undefined}.
