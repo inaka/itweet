@@ -3,7 +3,7 @@
   ((fun (__X, __V) ->
              case (__X < __V) of
                true -> ok;
-               false -> .erlang:error({assertLess_failed,
+               false -> erlang:error({assertLess_failed,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??Min " < " ??Max)},
@@ -15,7 +15,7 @@
   ((fun (__X, __V) ->
              case (__X =< __V) of
                true -> ok;
-               false -> .erlang:error({assertLessOrEq_failed,
+               false -> erlang:error({assertLessOrEq_failed,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, (??Min " =< " ??Max)},
@@ -27,7 +27,7 @@
   ((fun (__X, __V) ->
              case lists:member(__X, __V) of
                true -> ok;
-               false -> .erlang:error({assertMember_failed,
+               false -> erlang:error({assertMember_failed,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, ("lists:member(" ??Member " , " ??List ")")},
@@ -39,7 +39,7 @@
   ((fun (__X, __V) ->
              case lists:member(__X, __V) of
                false -> ok;
-               true -> .erlang:error({assertNotMember_failed,
+               true -> erlang:error({assertNotMember_failed,
                                      [{module, ?MODULE},
                                       {line, ?LINE},
                                       {expression, ("not lists:member(" ??Member " , " ??List ")")},
@@ -50,7 +50,7 @@
 -define(assertBinMatch(Text, Patterns),
   ((fun (__X, __V) ->
               case binary:match(__X, __V) of
-                nomatch -> .erlang:error({assertBinMatch_failed,
+                nomatch -> erlang:error({assertBinMatch_failed,
                                          [{module, ?MODULE},
                                           {line, ?LINE},
                                           {expression, ("binary:match(" ??Text " , " ??Patterns ")")},
@@ -60,7 +60,7 @@
              end
     end)(Text, Patterns))).
 -define(fail(Msg),
-        .erlang:error({failed,
+        erlang:error({failed,
                        [{module, ?MODULE},
                        {line, ?LINE},
                        {msg, Msg}]})).
