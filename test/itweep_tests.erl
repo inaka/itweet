@@ -30,7 +30,7 @@
 
 -record(state, {events = []   :: [{atom(), itweep:event_data()}],
                 statuses = [] :: [itweep:tweet()]}).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).
 -export([main/0, to_lower/1]).
@@ -55,8 +55,8 @@ main() ->
 itweep_test_() ->
   {setup,
    _Start = fun() ->
-                    {ok, CKey} = application:get_env(itweet, consumer_key),
-                    {ok, CSecret}  = application:get_env(itweet, consumer_secret),
+                    {ok, _CKey} = application:get_env(itweet, consumer_key),
+                    {ok, _CSecret}  = application:get_env(itweet, consumer_secret),
                     {ok, Token} = application:get_env(itweet, access_token),
                     {ok, Secret} = application:get_env(itweet, access_secret),
                     {ok, _Pid} = itweep:start_link({local, ?MODULE}, ?MODULE, [],
