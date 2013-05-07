@@ -10,26 +10,18 @@
     , end_per_testcase/2
     ]).
 -export(
-    [ test_itweet/1
+    [ run_eunit/1
+    , test_itweet/1
     , test_itweep_searcher/1
     ]).
--export([test_test/1]).
 
 -type config() :: [{atom(), term()}].
 
 -spec all() -> [atom()].
-%all() ->
-%    [Fun || {Fun, 1} <- module_info(exports),
-%        not lists:member(Fun,
-%            [ init_per_suite
-%            , end_per_suite
-%            , init_per_testcase
-%            , end_per_testcase
-%            , init_per_group
-%            , end_per_group
-%            , module_info
-%            ])].
-all() -> [test_test].
+all() ->
+    [ test_itweet
+    , test_itweep_searcher
+    ].
 
 -spec init_per_suite(config()) -> config().
 init_per_suite(Config) ->
@@ -58,7 +50,8 @@ end_per_suite(Config) ->
     Config.
 
 -spec init_per_testcase(atom(), config()) -> config().
-init_per_testcase(test_test, Config) -> Config;
+init_per_testcase(run_eunit, Config) ->
+    Config;
 init_per_testcase(test_itweet, Config) ->
     inets:start(),
     ServerConfig = ?config(test_itweet_config, Config),
@@ -71,7 +64,8 @@ init_per_testcase(test_itweep_searcher, Config) ->
     [{httpd_pid, Pid} | Config].
 
 -spec end_per_testcase(atom(), config()) -> config().
-end_per_testcase(test_test, Config) -> Config;
+end_per_testcase(run_eunit, Config) ->
+    Config;
 end_per_testcase(test_itweet, Config) ->
     Pid = ?config(httpd_pid, Config),
     ok = inets:stop(httpd, Pid),
@@ -85,19 +79,24 @@ end_per_testcase(test_itweep_searcher, Config) ->
 
 %% Test Cases
 
--spec test_test(config()) -> _.
-test_test(Config) ->
+% This test case runs the former eunit tests.
+-spec run_eunit(config()) -> _.
+run_eunit(_Config) ->
+    ok = eunit:test(itweep_testt),
+    ok = eunit:test(qa_itweep).
+
+% This case tests the itweet functionality.
+-spec test_itweet(config()) -> _.
+test_itweet(Config) ->
     DD = ?config(data_dir, Config),
     PD = ?config(priv_dir, Config),
     io:format("data: ~p~npriv: ~p~n", [DD, PD]),
     ok.
 
-% This case tests the itweet functionality.
--spec test_itweet(config()) -> _.
-test_itweet(_Config) ->
-    ok.
-
 % This case tests the itweep_searcher functionality.
 -spec test_itweep_searcher(config()) -> _.
-test_itweep_searcher(_Config) ->
+test_itweep_searcher(Config) ->
+    DD = ?config(data_dir, Config),
+    PD = ?config(priv_dir, Config),
+    io:format("data: ~p~npriv: ~p~n", [DD, PD]),
     ok.
