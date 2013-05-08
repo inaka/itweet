@@ -46,12 +46,12 @@
     , module        = none :: atom()
     , function      = none :: atom()
     , counter       = 0 :: non_neg_integer()
-    , data_dir      = [] :: string()
+    , data_dir      = "" :: string()
     }).
 
 %% This is the initial launching function.
 %% Returns the PID of the server process.
--spec start(list()) -> pid().
+-spec start(proplists:proplist()) -> pid().
 start(Options) ->
     spawn(?MODULE, init, [Options]).
 
@@ -66,7 +66,7 @@ stop(Name) ->
     Name ! quit.
 
 %% Initialization function. Creates the server's initial state.
--spec init(list()) -> _.
+-spec init(proplists:proplist()) -> _.
 init(Options) ->
     Module   = proplists:get_value(module,   Options),
     Function = proplists:get_value(function, Options),
@@ -74,12 +74,7 @@ init(Options) ->
     Register = proplists:get_value(name,     Options),
     DataDir  = proplists:get_value(data_dir, Options),
 
-    case Register of
-        undefined ->
-            register(?MODULE, self());
-        Name ->
-            register(Name, self())
-    end,
+    register_server(Register),
 
     % Open the listening socket.
     {ok, ServerSocket} = gen_tcp:listen(0,
@@ -132,6 +127,12 @@ loop(State) ->
             io:format("Unrecognized message: ~p~n", [M])
     end.
 
+-spec register_server(atom()) -> true.
+register_server(undefined) ->
+    register(?MODULE, self());
+register_server(Name) ->
+    register(Name, self()).
+
 -spec get_response(#state{}) -> binary().
 get_response(State) ->
     D = State#state.data_dir,
@@ -144,7 +145,9 @@ get_response(State) ->
         {ok, Response} ->
             Response;
         {error, enoent} ->
-            Response = <<"HTTP/1.1 NOT FOUND\r\n">>
+            Response = <<"HTTP/1.1 404 Not Found\r\n\r\n">>;
+        {error, Error} ->
+            Reponse =  <<"HTTP/1.1 500 Internal Server Error\r\n\r\n">>;
     end,
     Response.
 
