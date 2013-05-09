@@ -23,7 +23,7 @@
 -behaviour(itweep).
 
 -record(state, {}).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 -export([start/2, stop/1]).
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).
@@ -51,13 +51,13 @@ init([]) ->
 %% @hidden
 -spec handle_status(Status::itweep:tweet(), State::term()) -> {stop, normal, state()}.
 handle_status(Status, State) ->
-%% handle_status(Status, State) ->
-%%   User = case itweet_mochijson2:get_value("user", Status) of
-%%            undefined -> "An annonymous user";
-%%            JsonObj -> itweet_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
-%%          end,
-%%   Text = itweet_mochijson2:get_value("text", Status, "nothing (o_O)"),  
-%%   io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
+  %% handle_status(Status, State) ->
+  %%   User = case itweet_mochijson2:get_value("user", Status) of
+  %%            undefined -> "An annonymous user";
+  %%            JsonObj -> itweet_mochijson2:get_value("screen_name", JsonObj, "An unnamed user")
+  %%          end,
+  %%   Text = itweet_mochijson2:get_value("text", Status, "nothing (o_O)"),
+  %%   io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
   io:format("~p~n", [Status]),
   {stop, normal, State}.
 

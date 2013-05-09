@@ -25,7 +25,7 @@
 -record(state, {seed        :: binary(),
                 waiting_for :: [binary()],
                 timer       :: undefined | timer:tref()}).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 -export([start/3, stop/1]).
 -export([handle_call/3, handle_event/3, handle_info/2, handle_status/2, init/1, terminate/2]).

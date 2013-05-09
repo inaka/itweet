@@ -9,7 +9,7 @@
 %%%   <pre>init(Args::term()) -> {@link init_result()}</pre>
 %%%     Opens and/or initializes the client.<br/>
 %%%   </li><li>
-%%%   <pre>handle_status(Status::{@link itweep:tweet()}, State::term()) -> {@link handler_result()}</pre>  
+%%%   <pre>handle_status(Status::{@link itweep:tweet()}, State::term()) -> {@link handler_result()}</pre>
 %%%     Called each time an status is received from twitter<br/>
 %%%   </li><li>
 %%%   <pre>handle_event(Event::atom(), Data::{@link itweep:event_data()}, State::term()) -> {@link handler_result()}</pre>
@@ -104,7 +104,7 @@
                 reconnect_timer             :: undefined | reference(),
                 stream_timeout = 90000      :: pos_integer()
                }).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BEHAVIOUR FUNCTIONS

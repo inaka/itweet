@@ -95,7 +95,7 @@
                 reconnect_timer             :: undefined | reference(),
                 search_frequency = ?DEFAULT_SEARCH_FREQUENCY :: pos_integer()
                }).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% BEHAVIOUR FUNCTIONS
