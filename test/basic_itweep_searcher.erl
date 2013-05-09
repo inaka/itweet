@@ -23,7 +23,7 @@
 -behaviour(itweep_searcher).
 
 -record(state, {statuses = [] :: [itweep_searcher:tweet()]}).
--opaque state() :: #state{}.
+-type state() :: #state{}.
 
 -export([start/0, now_search/2, stop/1]).
 -export([handle_call/3, handle_info/2, handle_status/2, init/1, terminate/2]).
@@ -56,7 +56,7 @@ handle_status(Status, State) ->
            undefined -> "An annonymous user";
            Name -> Name
          end,
-  Text = itweet_mochijson2:get_value("text", Status, "nothing (o_O)"),  
+  Text = itweet_mochijson2:get_value("text", Status, "nothing (o_O)"),
   io:format("~p - ~p:~s says: ~s~n", [calendar:local_time(), ?MODULE, User, Text]),
   {ok, State#state{statuses = [Status | State#state.statuses]}}.
 
