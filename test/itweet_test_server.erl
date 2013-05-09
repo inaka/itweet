@@ -45,6 +45,7 @@
     , client_socket = undefined :: gen_tcp:socket() | undefined
     , module        = none :: atom()
     , function      = none :: atom()
+    , name          = none :: atom()
     , counter       = 0 :: non_neg_integer()
     , data_dir      = "" :: string()
     }).
@@ -74,7 +75,10 @@ init(Options) ->
     Register = proplists:get_value(name,     Options),
     DataDir  = proplists:get_value(data_dir, Options),
 
-    register_server(Register),
+    % Register_server returns the name under which it effectively registered
+    % the process. We store it in the state because when the process quits,
+    % we no longer have the original options available to determine its name.
+    Name = register_server(Register),
 
     % Open the listening socket.
     {ok, ServerSocket} = gen_tcp:listen(0,
@@ -85,15 +89,13 @@ init(Options) ->
         , binary
         ]),
 
-    % Get the client connection.
-    {ok, ClientSocket} = gen_tcp:accept(ServerSocket),
     State = #state{
         server_socket = ServerSocket,
-        client_socket = ClientSocket,
         module        = Module,
         function      = Function,
         counter       = 1,
-        data_dir      = DataDir
+        data_dir      = DataDir,
+        name          = Name
     },
     % Start the recieve/reply loop.
     loop(State).
@@ -105,33 +107,55 @@ init(Options) ->
 -spec loop(#state{}) -> _.
 loop(State) ->
     ServerSocket = State#state.server_socket,
-    ClientSocket = State#state.client_socket,
+    % Get the client connection.
+    {ok, ClientSocket} = gen_tcp:accept(ServerSocket),
     receive
         quit ->
-            gen_tcp:close(ClientSocket),
-            gen_tcp:close(ServerSocket),
-            ok;
+            ClientSocket = State#state.client_socket,
+            quit(State);
         {tcp, ClientSocket, Data} ->
             % Here is where it gets the correct response based on it's state.
             Response = get_response(State),
             ok = gen_tcp:send(ClientSocket, Response),
+            ok = gen_tcp:close(ClientSocket),
             % Increment the counter so on the next request, it will get the
             % next response.
             NewState = State#state{counter = State#state.counter + 1},
             loop(NewState);
         {tcp_closed, ClientSocket}->
-            io:format("Socket ~p closed~n", [ClientSocket]);
+            io:format("Socket ~p closed~n", [ClientSocket]),
+            ClientSocket = State#state.client_socket,
+            unregister(State#state.name);
         {tcp_error, ClientSocket, Reason} ->
-            io:format("Error on socket ~p reason: ~p~n", [ClientSocket, Reason]);
+            io:format("Error on socket ~p reason: ~p~n", [ClientSocket, Reason]),
+            ClientSocket = State#state.client_socket,
+            unregister(State#state.name);
         M ->
-            io:format("Unrecognized message: ~p~n", [M])
+            io:format("Unrecognized message: ~p~n", [M]),
+            ClientSocket = State#state.client_socket,
+            unregister(State#state.name)
     end.
 
--spec register_server(atom()) -> true.
+-spec quit(#state{}) -> _.
+quit(State) ->
+    gen_tcp:close(State#state.server_socket),
+    unregister(State#state.name).
+
+-spec register_server(atom()) -> atom().
 register_server(undefined) ->
-    register(?MODULE, self());
+    case lists:member(?MODULE, registered()) of
+        true -> unregister(?MODULE);
+        _ ->    ok
+    end,
+    register(?MODULE, self()),
+    ?MODULE;
 register_server(Name) ->
-    register(Name, self()).
+    case lists:member(Name, registered()) of
+        true -> unregister(Name);
+        _ ->    ok
+    end,
+    register(Name, self()),
+    Name.
 
 -spec get_response(#state{}) -> binary().
 get_response(State) ->
@@ -140,14 +164,12 @@ get_response(State) ->
     F = State#state.function,
     C = State#state.counter,
     Filename = D ++ "/" ++ atom_to_list(M) ++ "_"  ++ atom_to_list(F) ++ "_" ++ integer_to_list(C) ++ ".txt",
-    io:format("opening: ~p~n", [Filename]),
     case file:read_file(Filename) of
         {ok, Response} ->
             Response;
         {error, enoent} ->
-            Response = <<"HTTP/1.1 404 Not Found\r\n\r\n">>;
-        {error, Error} ->
-            Reponse =  <<"HTTP/1.1 500 Internal Server Error\r\n\r\n">>;
-    end,
-    Response.
+            <<"HTTP/1.1 404 Not Found\r\n\r\n">>;
+        {error, _Error} ->
+            <<"HTTP/1.1 500 Internal Server Error\r\n\r\n">>
+    end.
 
