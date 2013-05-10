@@ -44,6 +44,8 @@
 
 -behaviour(gen_server).
 
+-define(TWITTER_URL, "http://api.twitter.com/1.1/search/tweets.json").
+
 -type tweet() :: itweet_mochijson2:json_object().
 -export_type([tweet/0]).
 
@@ -115,26 +117,26 @@ behaviour_info(_Other) ->
 %%% @doc  Starts a generic server.
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
-  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start(?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start(?MODULE, {Mod, Args, Token, Secret, SearchFrequency, TwitterUrl}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
-  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency, TwitterUrl}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
-  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, SearchFrequency, TwitterUrl}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
-  {Token, Secret, SearchFrequency, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency}, OtherOptions).
+  {Token, Secret, SearchFrequency, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, SearchFrequency, TwitterUrl}, OtherOptions).
 
 %%% @doc  Starts using the <a href="https://dev.twitter.com/docs/api/1/get/search">search</a> API to get results
 -spec search(server(), string(), [filter_option()]) -> ok.
@@ -172,18 +174,18 @@ current_method(Server) ->
 
 %% @hidden
 -spec init({atom(), term(), pos_integer()}) -> {ok, state()} | ignore | {stop, term()}.
-init({Mod, InitArgs, Token, Secret, SearchFrequency}) ->
-  _Seed = random:seed(erlang:now()),
-  {ok, CKey} = application:get_env(itweet, consumer_key),
+init({Mod, InitArgs, Token, Secret, SearchFrequency, TwitterUrl}) ->
+  _Seed         = random:seed(erlang:now()),
+  {ok, CKey}    = application:get_env(itweet, consumer_key),
   {ok, CSecret} = application:get_env(itweet, consumer_secret),
-  Consumer = {CKey, CSecret, hmac_sha1},
+  Consumer      = {CKey, CSecret, hmac_sha1},
   case Mod:init(InitArgs) of
     {ok, ModState} ->
       {ok, #state{module            = Mod,
                   mod_state         = ModState,
                   consumer          = Consumer,
                   token             = Token,
-                  url               = "http://api.twitter.com/1.1/search/tweets.json",
+                  url               = TwitterUrl,
                   secret            = Secret,
                   qs                = ?DEFAULT_QS_OPTIONS,
                   search_frequency  = SearchFrequency}};
@@ -328,10 +330,16 @@ parse_start_options(Options) ->
       undefined -> ?DEFAULT_SEARCH_FREQUENCY;
       SF -> SF
     end,
-  {
-    Token, Secret, SearchFrequency,
-    proplists:delete(token, proplists:delete(token, proplists:delete(secret, proplists:delete(search_frequency, Options))))
-  }.
+
+  TwitterUrl = proplists:get_value(url, Options, ?TWITTER_URL),
+  OtherOptions = lists:foldl(
+    fun(Key, Acc) ->
+      proplists:delete(Key, Acc)
+    end,
+    Options,
+    [token, secret, search_frequency, url]
+  ),
+  {Token, Secret, SearchFrequency, TwitterUrl, OtherOptions}.
 
 run_handler(Fun) ->
   try Fun() of

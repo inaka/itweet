@@ -10,16 +10,20 @@
     , end_per_testcase/2
     ]).
 -export(
-    [ run_eunit/1
-    , test_itweet/1
+    [ test_itweet/1
     , test_itweep_searcher/1
+    , dummy_test/1
+    % , run_eunit/1
     ]).
 
 -type config() :: [{atom(), term()}].
 
 -spec all() -> [atom()].
 all() ->
-    [ test_itweet
+    [
+      dummy_test
+     % , run_eunit
+    , test_itweet
     , test_itweep_searcher
     ].
 
@@ -27,6 +31,7 @@ all() ->
 init_per_suite(Config) ->
     DD = ?config(data_dir, Config),
     PD = ?config(priv_dir, Config),
+    io:format("data: ~p~npriv: ~p~n", [DD, PD]),
     ServerConfig1 =
         [ {port,          8080}
         , {server_name,   "itweet_test_httpd"}
@@ -50,8 +55,8 @@ end_per_suite(Config) ->
     Config.
 
 -spec init_per_testcase(atom(), config()) -> config().
-init_per_testcase(run_eunit, Config) ->
-    Config;
+init_per_testcase(dummy_test, Config) -> Config;
+% init_per_testcase(run_eunit, Config) -> Config;
 init_per_testcase(test_itweet, Config) ->
     inets:start(),
     ServerConfig = ?config(test_itweet_config, Config),
@@ -64,8 +69,8 @@ init_per_testcase(test_itweep_searcher, Config) ->
     [{httpd_pid, Pid} | Config].
 
 -spec end_per_testcase(atom(), config()) -> config().
-end_per_testcase(run_eunit, Config) ->
-    Config;
+end_per_testcase(dummy_test, Config) -> Config;
+% end_per_testcase(run_eunit, Config) -> Config;
 end_per_testcase(test_itweet, Config) ->
     Pid = ?config(httpd_pid, Config),
     ok = inets:stop(httpd, Pid),
@@ -79,10 +84,17 @@ end_per_testcase(test_itweep_searcher, Config) ->
 
 %% Test Cases
 
+-spec dummy_test(config()) -> _.
+dummy_test(Config) ->
+    DD = ?config(data_dir, Config),
+    PD = ?config(priv_dir, Config),
+    io:format("data: ~p~npriv: ~p~n", [DD, PD]),
+    ok.
+
 % This test case runs the former eunit tests.
 -spec run_eunit(config()) -> _.
 run_eunit(_Config) ->
-    ok = eunit:test(itweep_testt),
+    ok = eunit:test(itweep_test),
     ok = eunit:test(qa_itweep).
 
 % This case tests the itweet functionality.

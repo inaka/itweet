@@ -69,10 +69,10 @@ stop(Name) ->
 %% Initialization function. Creates the server's initial state.
 -spec init(proplists:proplist()) -> _.
 init(Options) ->
+    Register = proplists:get_value(name,     Options),
+    Port     = proplists:get_value(port,     Options),
     Module   = proplists:get_value(module,   Options),
     Function = proplists:get_value(function, Options),
-    Port     = proplists:get_value(port,     Options),
-    Register = proplists:get_value(name,     Options),
     DataDir  = proplists:get_value(data_dir, Options),
 
     % Register_server returns the name under which it effectively registered
@@ -111,9 +111,9 @@ loop(State) ->
     {ok, ClientSocket} = gen_tcp:accept(ServerSocket),
     receive
         quit ->
-            ClientSocket = State#state.client_socket,
             quit(State);
         {tcp, ClientSocket, Data} ->
+            io:format("Socket recieved: ~p~n", [Data]),
             % Here is where it gets the correct response based on it's state.
             Response = get_response(State),
             ok = gen_tcp:send(ClientSocket, Response),
@@ -124,12 +124,10 @@ loop(State) ->
             loop(NewState);
         {tcp_closed, ClientSocket}->
             io:format("Socket ~p closed~n", [ClientSocket]),
-            ClientSocket = State#state.client_socket,
-            unregister(State#state.name);
+            loop(State);
         {tcp_error, ClientSocket, Reason} ->
             io:format("Error on socket ~p reason: ~p~n", [ClientSocket, Reason]),
-            ClientSocket = State#state.client_socket,
-            unregister(State#state.name);
+            loop(State);
         M ->
             io:format("Unrecognized message: ~p~n", [M]),
             ClientSocket = State#state.client_socket,
@@ -163,13 +161,14 @@ get_response(State) ->
     M = State#state.module,
     F = State#state.function,
     C = State#state.counter,
-    Filename = D ++ "/" ++ atom_to_list(M) ++ "_"  ++ atom_to_list(F) ++ "_" ++ integer_to_list(C) ++ ".txt",
+    Filename = "./test/" ++ D ++ "/" ++ atom_to_list(M) ++ "_"  ++ atom_to_list(F) ++ "_" ++ integer_to_list(C) ++ ".txt",
+    io:format("opening file: ~p ~n", [Filename]),
     case file:read_file(Filename) of
         {ok, Response} ->
             Response;
         {error, enoent} ->
-            <<"HTTP/1.1 404 Not Found\r\n\r\n">>;
+            <<"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n">>;
         {error, _Error} ->
-            <<"HTTP/1.1 500 Internal Server Error\r\n\r\n">>
+            <<"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\n\r\n">>
     end.
 

@@ -46,6 +46,7 @@
 -vsn("2.0").
 
 -define(MAX_ERLANG_TIMER_MILLIS, 4294967295).
+-define(TWITTER_URL,             "https://stream.twitter.com/1.1/statuses/" ).
 
 -behaviour(gen_server).
 
@@ -102,7 +103,8 @@
                 method= rest                :: method(),
                 backoff = ?INITIAL_BACKOFF  :: pos_integer(),
                 reconnect_timer             :: undefined | reference(),
-                stream_timeout = 90000      :: pos_integer()
+                stream_timeout = 90000      :: pos_integer(),
+                url                         :: string()
                }).
 -type state() :: #state{}.
 
@@ -125,26 +127,26 @@ behaviour_info(_Other) ->
 %%% @doc  Starts a generic server.
 -spec start(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Mod, Args, Options) ->
-  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start(?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start(?MODULE, {Mod, Args, Token, Secret, TwitterUrl, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts a named generic server.
 -spec start(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start(Name, Mod, Args, Options) ->
-  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start(Name, ?MODULE, {Mod, Args, Token, Secret, TwitterUrl, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a generic server.
 -spec start_link(Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Mod, Args, Options) ->
-  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(?MODULE, {Mod, Args, Token, Secret, TwitterUrl, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts and links a named generic server.
 -spec start_link(Name::{local|global, atom()}, Mod::atom(), Args::term(), Options::[start_option()]) -> start_result().
 start_link(Name, Mod, Args, Options) ->
-  {Token, Secret, StreamTimeout, OtherOptions} = parse_start_options(Options),
-  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, StreamTimeout}, OtherOptions).
+  {Token, Secret, StreamTimeout, TwitterUrl, OtherOptions} = parse_start_options(Options),
+  gen_server:start_link(Name, ?MODULE, {Mod, Args, Token, Secret, TwitterUrl, StreamTimeout}, OtherOptions).
 
 %%% @doc  Starts using the <a href="http://dev.twitter.com/pages/streaming_api_methods#statuses-filter">statuses/filter</a> method to get results
 -spec filter(server(), [filter_option() | ibrowse:option()]) -> ok.
@@ -202,7 +204,7 @@ current_method(Server) ->
 
 %% @hidden
 -spec init({atom(), term(), string(), string(), pos_integer()}) -> {ok, state()} | ignore | {stop, term()}.
-init({Mod, InitArgs, Token, Secret, StreamTimeout}) ->
+init({Mod, InitArgs, Token, Secret, TwitterUrl, StreamTimeout}) ->
   _Seed = random:seed(erlang:now()),
   case Mod:init(InitArgs) of
     {ok, ModState} ->
@@ -210,6 +212,7 @@ init({Mod, InitArgs, Token, Secret, StreamTimeout}) ->
                   mod_state     = ModState,
                   token         = Token,
                   secret        = Secret,
+                  url           = TwitterUrl,
                   stream_timeout= StreamTimeout}};
     Other ->
       Other
@@ -248,7 +251,7 @@ handle_call({call, Request}, From, State = #state{module = Mod, mod_state = ModS
 %% @hidden
 -spec handle_cast(rest | wait | {string(), [filter_option() | gen_option() | ibrowse:option()]}, state()) -> {noreply, state(), pos_integer() | infinity} | {stop, term(), state()}.
 handle_cast(M = {Method, Options}, State = #state{token = Token, secret = Secret, req_id = OldReqId, reconnect_timer = Timer}) ->
-  Url = "https://stream.twitter.com/1.1/statuses/" ++ Method ++ ".json",
+  Url = State#state.url ++ Method ++ ".json",
   {QueryString, IOptions} = extract_query_string(Options),
   case Timer of
     undefined -> ok;
@@ -441,7 +444,15 @@ parse_start_options(Options) ->
                     undefined -> 90000;
                     ST -> ST
                   end,
-  {Token, Secret, StreamTimeout, proplists:delete(token, proplists:delete(secret, Options))}.
+  TwitterUrl = proplists:get_value(url, Options, ?TWITTER_URL),
+  OtherOptions = lists:foldl(
+    fun(Key, Acc) ->
+      proplists:delete(Key, Acc)
+    end,
+    Options,
+    [token, secret, url]
+  ),
+  {Token, Secret, StreamTimeout, TwitterUrl, OtherOptions}.
 
 extract_query_string(Options) ->
   extract_query_string(Options, [], []).

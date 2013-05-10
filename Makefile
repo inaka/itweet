@@ -1,3 +1,5 @@
+ERLARGS?=-config etc/itweet
+
 all:
 	rebar get-deps && rebar compile
 
@@ -29,4 +31,4 @@ test: all
 	open log/ct/index.html
 
 shell: all
-	erl -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -s ssl -s itweet
+	erl ${ERLARGS} -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -boot start_sasl -s crypto -s ibrowse -s ssl -s itweet
