@@ -6,8 +6,8 @@
   {applications, [
                   kernel,
                   stdlib,
-                  ssl
-                  , lager
+                  ssl,
+                  lager
                  ]},
   {mod, {itweet, []}},
 	{env, [
