@@ -1,5 +1,5 @@
 % we ignore test.config because it has confidential information (if you want to run make test, you need to fill it up)
-test.config
+itweet.config
 doc
 ebin
 deps
