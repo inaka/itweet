@@ -244,7 +244,7 @@ handle_info(run_query, State) ->
   try oauth:get(
     State#state.url, State#state.qs,
     State#state.consumer, State#state.token, State#state.secret,
-    [{response_format, binary}]
+    [{response_format, binary},{trace,true}]
   ) of
     {ok, "200", _Headers, Body} ->
       NewTimer = erlang:send_after(State#state.search_frequency, self(), run_query),
