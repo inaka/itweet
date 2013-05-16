@@ -1,0 +1,8 @@
+[ { itweet,
+    [ {consumer_key,    "key"}
+    , {consumer_secret, "secret"}
+    , {access_token,    "access token"}
+    , {access_secret,   "access token secret"}
+    ]
+  }
+].
