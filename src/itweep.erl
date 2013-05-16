@@ -46,7 +46,7 @@
 -vsn("2.0").
 
 -define(MAX_ERLANG_TIMER_MILLIS, 4294967295).
--define(TWITTER_URL,             "https://stream.twitter.com/1.1/statuses/" ).
+-define(TWITTER_URL, "https://stream.twitter.com/1.1/statuses/" ).
 
 -behaviour(gen_server).
 
@@ -409,7 +409,7 @@ handle_info({reconnect, Method}, State = #state{method = wait}) ->
   error_logger:info_msg("~p, ~p - ~p: Reconnecting...~n", [self(), calendar:local_time(), ?MODULE]),
   handle_cast(Method, State#state{reconnect_timer = undefined});
 handle_info({reconnect, _Method}, State) -> %% It's no longer waiting
-  error_logger:info_msg("~p, ~p - ~p: Already econnected...~n", [self(), calendar:local_time(), ?MODULE]),
+  error_logger:info_msg("~p, ~p - ~p: Already connected...~n", [self(), calendar:local_time(), ?MODULE]),
   {noreply, State, timeout(State)};
 %% OTHERs ------------------------------------------------------------------------------------------
 handle_info(Info, State = #state{module = Mod, mod_state = ModState}) ->
