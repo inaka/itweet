@@ -1,4 +1,5 @@
-ERLARGS?=-config etc/itweet
+
+ERLARGS?=-config itweet
 
 all:
 	rebar get-deps && rebar compile
@@ -26,8 +27,11 @@ test: all
 #		erl -noshell              -pa ebin -pa deps/*/ebin +Bc +K true -smp enable -s crypto -s ibrowse -s ssl -s itweet -run itweep_tests main; \
 #	fi
 	echo "Running common tests..."
+	# Create the directory in which common test will output.
 	mkdir -p log/ct
-	rebar skip_deps=true ct
+	# Tell rebar to run common test tests.
+	# We define the flags that rebar will pass on to the erlang VM.
+	ERL_FLAGS="${ERLARGS}" ERL_AFLAGS="${ERLARGS}" rebar skip_deps=true ct
 	open log/ct/index.html
 
 shell: all
