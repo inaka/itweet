@@ -62,10 +62,10 @@ stop(Server) ->
 %% Initialization function. Creates the server's initial state.
 -spec init(proplists:proplist()) -> _.
 init(Options) ->
-    Port     = proplists:get_value(port,     Options, 10000),
-    Module   = proplists:get_value(module,   Options, itweep_searcher),
-    Function = proplists:get_value(function, Options, itweep_searcher_test),
-    DataDir  = proplists:get_value(data_dir, Options, "itweet_SUITE_data"),
+    Port     = proplists:get_value(port,     Options),
+    Module   = proplists:get_value(module,   Options),
+    Function = proplists:get_value(function, Options),
+    DataDir  = proplists:get_value(data_dir, Options),
 
     % Open the listening socket.
     {ok, ServerSocket} = gen_tcp:listen(0,
