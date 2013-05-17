@@ -96,7 +96,7 @@ test_searcher(Config) ->
 
     io:format("Starting test server.~n"),
     try
-        {ok, Server} = itweep_searcher:start(test_searcher_cb, [],
+        {ok, Server} = itweep_searcher:start_link(test_searcher_cb, [],
             [ {token,  Token}
             , {secret, Secret}
             , {search_frequency, 800}
@@ -106,13 +106,13 @@ test_searcher(Config) ->
         itweep_searcher:call(Server, {load_filters, "#test"}),
 
         io:format("Sleeping.~n"),
-        timer:sleep(30000),
+        timer:sleep(3000),
 
         io:format("Getting responses.~n"),
-        Statuses = itweep_searcher:get_statuses(Server),
+        Statuses = itweep_searcher_cb:get_statuses(Server),
 
         io:format("These are the received responses:~n"),
-        lists:map(fun(S) -> io:format("STATUS:~n~p~n~n", [S]) end, Statuses)
+        lists:foreach(fun(S) -> io:format("STATUS:~n~p~n~n", [S]) end, Statuses)
     catch
       _:E ->
         io:format("Error: ~p~nStacktrace: ~p", [E, erlang:get_stacktrace()])
